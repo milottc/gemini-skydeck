@@ -515,8 +515,8 @@ let M_PER_DEG_LAT=111132,M_PER_DEG_LON=111320*Math.cos(47.4647*Math.PI/180);
 
 const worldToLL=(x,z)=>({lat:CFG.origin.lat-z/M_PER_DEG_LAT,lon:CFG.origin.lon+x/M_PER_DEG_LON});
 const llToWorld=(lat,lon)=>({x:(lon-CFG.origin.lon)*M_PER_DEG_LON,z:-(lat-CFG.origin.lat)*M_PER_DEG_LAT});
-const CFG={origin:{lat:47.4647,lon:8.5492},terrainExtent:18000,terrainGrid:385,texSize:4096,
-  maxImageryTiles:144,maxHeightTiles:16,heightZoom:13,rebuildDist:3000,tileTimeout:12000};
+const CFG={origin:{lat:47.4647,lon:8.5492},terrainExtent:18000,terrainGrid:225,texSize:2048,
+  maxImageryTiles:72,maxHeightTiles:16,heightZoom:13,rebuildDist:3000,tileTimeout:12000};
 const lon2tx=(lon,z)=>(lon+180)/360*Math.pow(2,z);
 const lat2ty=(lat,z)=>{const r=lat*Math.PI/180;return(1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*Math.pow(2,z);};
 const tx2lon=(x,z)=>x/Math.pow(2,z)*360-180;
@@ -738,11 +738,11 @@ status('engine');
 const canvas=document.getElementById('renderCanvas');
 let engine=null;
 const isTouchDev=('ontouchstart' in window||navigator.maxTouchPoints>0)&&Math.min(screen.width,screen.height)<900;
-if(isTouchDev){CFG.texSize=2048;CFG.terrainGrid=161;}
+if(isTouchDev){CFG.texSize=1024;CFG.terrainGrid=129;}
 const engOpts=[{stencil:true,antialias:true,powerPreference:'high-performance',failIfMajorPerformanceCaveat:false},{stencil:true,antialias:false,failIfMajorPerformanceCaveat:false},{stencil:false,antialias:false,failIfMajorPerformanceCaveat:false,preserveDrawingBuffer:false}];
 for(const o of engOpts){try{engine=new BABYLON.Engine(canvas,o.antialias,o,true);if(engine)break;}catch(e){engine=null;}}
 if(!engine){fatal('WebGL could not start. Fixes: enable hardware acceleration in your browser settings (Chrome: Settings > System), update your browser/GPU drivers, close other heavy tabs, or try another browser (Chrome/Edge/Safari). Test at get.webgl.org');return;}
-engine.setHardwareScalingLevel(1/Math.min(window.devicePixelRatio||1,1.5));
+engine.setHardwareScalingLevel(isTouchDev?1.15:1.0);
 const scene=new BABYLON.Scene(engine);
 scene.clearColor=new BABYLON.Color4(.55,.72,.92,1);
 scene.ambientColor=new BABYLON.Color3(.4,.46,.55);
@@ -4598,12 +4598,14 @@ function drawEICAS(ctx,W,H){
   ctx.fillStyle=alert.length?R:G;
   ctx.fillText(alert.length?alert.slice(0,2).join('  ·  ')+(alert.length>2?'  +'+(alert.length-2):''):'NO ACTIVE ALERTS',W/2,alertY);
 }
-let _screenAccum=0;
+let _screenAccum=0,_screenPhase=0;
 function drawScreens(hdg,pitch,bank){
   if(camMode!==1)return;
   const isAnalog=ANALOG_SET.has(window._activeModelId);
   try{setPanelCategory(isAnalog);}catch(e){}
   if(isAnalog){
+    _screenAccum++;
+    if(_screenAccum%4!==0)return;
     try{
       const n1L=ENG.L.n1||0,n1R=ENG.R.n1||0;
       drawClassicPanel(classicTex.getContext(),1536,420,hdg,pitch,bank,DV.spd,DV.alt,DV.vs,n1L,n1R,FLAPS[plane.flaps].name,plane.gearPos>0.9?'DN':(plane.gearPos<0.1?'UP':'TRANSIT'));
@@ -4612,8 +4614,9 @@ function drawScreens(hdg,pitch,bank){
     return;
   }
   _screenAccum++;
-  if(_screenAccum%3!==0)return;
+  if(_screenAccum%2!==0)return;
   if(!electricalPower()){
+    if(_screenAccum%8!==0)return;
     try{
       for(const d of Object.values(displays)){
         const c=d.getContext(),cv=c.canvas;c.fillStyle='#000';c.fillRect(0,0,cv.width,cv.height);
@@ -4639,15 +4642,18 @@ function drawScreens(hdg,pitch,bank){
     return;
   }
   try{
-    const pfdL=displays.pfdL.getContext(),ndL=displays.ndL.getContext();
-    const eicas=displays.eicas.getContext(),ndR=displays.ndR.getContext(),pfdR=displays.pfdR.getContext();
-    if(faults.has('GEN_FAIL')){blankScr(displays.pfdL);blankScr(displays.ndL);}
-    else{drawPFD(pfdL,pfdL.canvas.width,pfdL.canvas.height,hdg,pitch,bank,'L');drawND(ndL,ndL.canvas.width,ndL.canvas.height,hdg);}
-    drawEICAS(eicas,eicas.canvas.width,eicas.canvas.height);
-    drawND(ndR,ndR.canvas.width,ndR.canvas.height,hdg);
-    drawPFD(pfdR,pfdR.canvas.width,pfdR.canvas.height,hdg,pitch,bank,'R');
-    displays.pfdL.update(true);displays.ndL.update(true);displays.eicas.update(true);
-    displays.ndR.update(true);displays.pfdR.update(true);
+    _screenPhase=(_screenPhase+1)%3;
+    if(_screenPhase===0){
+      if(faults.has('GEN_FAIL'))blankScr(displays.pfdL);
+      else{const pfdL=displays.pfdL.getContext();drawPFD(pfdL,pfdL.canvas.width,pfdL.canvas.height,hdg,pitch,bank,'L');displays.pfdL.update(true);}
+      const pfdR=displays.pfdR.getContext();drawPFD(pfdR,pfdR.canvas.width,pfdR.canvas.height,hdg,pitch,bank,'R');displays.pfdR.update(true);
+    }else if(_screenPhase===1){
+      if(faults.has('GEN_FAIL'))blankScr(displays.ndL);
+      else{const ndL=displays.ndL.getContext();drawND(ndL,ndL.canvas.width,ndL.canvas.height,hdg);displays.ndL.update(true);}
+      const ndR=displays.ndR.getContext();drawND(ndR,ndR.canvas.width,ndR.canvas.height,hdg);displays.ndR.update(true);
+    }else{
+      const eicas=displays.eicas.getContext();drawEICAS(eicas,eicas.canvas.width,eicas.canvas.height);displays.eicas.update(true);
+    }
   }catch(e){}
 }
 
@@ -5128,7 +5134,7 @@ const idxArr=(()=>{const a=new Uint32Array((N-1)*(N-1)*6);let p=0;
 
 let terrainTex=new BABYLON.DynamicTexture('terrainTex',{width:CFG.texSize,height:CFG.texSize},scene,true);
 terrainTex.wrapU=BABYLON.Texture.CLAMP_ADDRESSMODE;terrainTex.wrapV=BABYLON.Texture.CLAMP_ADDRESSMODE;
-terrainTex.anisotropicFilteringLevel=16;
+terrainTex.anisotropicFilteringLevel=4;
 const terrainMat=new BABYLON.PBRMaterial('terrainMat',scene);
 terrainMat.albedoTexture=terrainTex;terrainMat.metallic=0;terrainMat.roughness=1;
 terrainMat.specularIntensity=.06;terrainMat.backFaceCulling=false;
@@ -5201,10 +5207,11 @@ async function buildTerrainTexture(cx,cz,live){
   let drawn=0,lastPush=0;
   const push=(force)=>{
     const t=performance.now();
-    if(!force&&(!live||t-lastPush<400))return;
+    if(!force&&(!live||t-lastPush<450))return;
     lastPush=t;
     terrainTex.getContext().drawImage(off,0,0,C,C);
     terrainTex.update(false);
+    try{if(window._updateSatSampler)window._updateSatSampler(off,cx,cz,drawn);}catch(e){}
   };
   const jobs=coords.map(({tx,ty})=>{
     const ca=getCanadaRegionForTile(z,tx,ty),source=imagerySource==='osm'?'osm':ca?'ca':'ww';
@@ -5316,6 +5323,7 @@ function rebuildGeom(cx,cz){
     {const sl=Math.min(1,Math.max(0,(1-normals[k+1])*3.2)),ao=1-.4*sl,k4=(j*N+i)*4;
      colors[k4]=ao*(1+.07*sl);colors[k4+1]=ao*(1-.01*sl);colors[k4+2]=ao*(1-.12*sl);colors[k4+3]=1;}
   }
+  terrainMesh.unfreezeWorldMatrix&&terrainMesh.unfreezeWorldMatrix();
   terrainMesh.updateVerticesData(BABYLON.VertexBuffer.PositionKind,positions);
   terrainMesh.updateVerticesData(BABYLON.VertexBuffer.NormalKind,normals);
   terrainMesh.updateVerticesData(BABYLON.VertexBuffer.ColorKind,colors);
@@ -5325,7 +5333,7 @@ function rebuildGeom(cx,cz){
 let rebuildBusy=false;
 async function rebuildTerrainAsync(cx,cz){
   if(rebuildBusy)return;rebuildBusy=true;
-  try{await ensureHeightTiles(cx,cz);await buildTerrainTexture(cx,cz);rebuildGeom(cx,cz);terrainMesh.position.set(cx,0,cz);terrainCenter={x:cx,z:cz};}
+  try{await ensureHeightTiles(cx,cz);await buildTerrainTexture(cx,cz);rebuildGeom(cx,cz);terrainMesh.unfreezeWorldMatrix&&terrainMesh.unfreezeWorldMatrix();terrainMesh.position.set(cx,0,cz);terrainMesh.freezeWorldMatrix&&terrainMesh.freezeWorldMatrix();terrainCenter={x:cx,z:cz};}
   catch(e){}finally{rebuildBusy=false;}
 }
 
@@ -5426,17 +5434,17 @@ function applyCloudTint(){
 let rainPS=null, snowPS=null;
 function setupPrecipitation(){
   if(!rainPS){
-    rainPS=new BABYLON.ParticleSystem('rain',4000,scene);
+    rainPS=new BABYLON.ParticleSystem('rain',1200,scene);
     rainPS.particleTexture=new BABYLON.Texture('https://assets.babylonjs.com/textures/flare.png',scene);
     rainPS.emitter=new BABYLON.Vector3(0,0,0);
-    rainPS.minEmitBox=new BABYLON.Vector3(-60,-5,-60);
-    rainPS.maxEmitBox=new BABYLON.Vector3(60,15,60);
+    rainPS.minEmitBox=new BABYLON.Vector3(-55,-5,-55);
+    rainPS.maxEmitBox=new BABYLON.Vector3(55,14,55);
     rainPS.color1=new BABYLON.Color4(.7,.75,.85,.6);
     rainPS.color2=new BABYLON.Color4(.6,.65,.8,.5);
     rainPS.colorDead=new BABYLON.Color4(.5,.55,.7,0);
     rainPS.minSize=.08;rainPS.maxSize=.18;
-    rainPS.minLifeTime=.6;rainPS.maxLifeTime=1.0;
-    rainPS.emitRate=2000;
+    rainPS.minLifeTime=.55;rainPS.maxLifeTime=.9;
+    rainPS.emitRate=800;
     rainPS.gravity=new BABYLON.Vector3(-2,-55,-2);
     rainPS.direction1=new BABYLON.Vector3(-1,-25,-1);
     rainPS.direction2=new BABYLON.Vector3(1,-20,1);
@@ -5445,17 +5453,17 @@ function setupPrecipitation(){
     rainPS.start();rainPS.stop();
   }
   if(!snowPS){
-    snowPS=new BABYLON.ParticleSystem('snow',2500,scene);
+    snowPS=new BABYLON.ParticleSystem('snow',800,scene);
     snowPS.particleTexture=new BABYLON.Texture('https://assets.babylonjs.com/textures/flare.png',scene);
     snowPS.emitter=new BABYLON.Vector3(0,0,0);
-    snowPS.minEmitBox=new BABYLON.Vector3(-60,0,-60);
-    snowPS.maxEmitBox=new BABYLON.Vector3(60,20,60);
+    snowPS.minEmitBox=new BABYLON.Vector3(-55,0,-55);
+    snowPS.maxEmitBox=new BABYLON.Vector3(55,18,55);
     snowPS.color1=new BABYLON.Color4(1,1,1,.9);
     snowPS.color2=new BABYLON.Color4(.9,.95,1,.8);
     snowPS.colorDead=new BABYLON.Color4(.9,.9,1,0);
-    snowPS.minSize=.15;snowPS.maxSize=.45;
-    snowPS.minLifeTime=2.5;snowPS.maxLifeTime=5;
-    snowPS.emitRate=500;
+    snowPS.minSize=.15;snowPS.maxSize=.42;
+    snowPS.minLifeTime=2.2;snowPS.maxLifeTime=4.2;
+    snowPS.emitRate=260;
     snowPS.gravity=new BABYLON.Vector3(0,-2.5,0);
     snowPS.direction1=new BABYLON.Vector3(-.5,-1,-.5);
     snowPS.direction2=new BABYLON.Vector3(.5,-1.5,.5);
@@ -5468,7 +5476,7 @@ function applyWeatherVisuals(){
   setupPrecipitation();
   if(!rainPS||!snowPS)return;
   if(currentWeather.rain>=1){
-    rainPS.emitRate=currentWeather.rain>=2?3500:1200;
+    rainPS.emitRate=currentWeather.rain>=2?950:520;
     if(!rainPS.isStarted())rainPS.start();
   } else { if(rainPS.isStarted())rainPS.stop(); }
   if(currentWeather.snow>=1){
@@ -5478,40 +5486,32 @@ function applyWeatherVisuals(){
 
 try{
   const pipeline=new BABYLON.DefaultRenderingPipeline('dp',true,scene,[camera]);
-  pipeline.fxaaEnabled=true;pipeline.samples=1;pipeline.sharpenEnabled=true;pipeline.sharpen.edgeAmount=.3;pipeline.sharpen.colorAmount=1;
+  pipeline.fxaaEnabled=true;pipeline.samples=1;pipeline.sharpenEnabled=true;pipeline.sharpen.edgeAmount=.28;pipeline.sharpen.colorAmount=1;
   pipeline.bloomEnabled=true;pipeline.bloomThreshold=.82;
-  pipeline.bloomWeight=.28;pipeline.bloomKernel=56;
+  pipeline.bloomWeight=.25;pipeline.bloomKernel=48;
+  pipeline.chromaticAberrationEnabled=false;
+  pipeline.grainEnabled=false;
   pipeline.imageProcessingEnabled=true;
   pipeline.imageProcessing.vignetteEnabled=true;
-  pipeline.imageProcessing.vignetteWeight=1.5;
+  pipeline.imageProcessing.vignetteWeight=1.1;
   pipeline.imageProcessing.vignetteStretch=.5;
   pipeline.imageProcessing.vignetteColor=new BABYLON.Color4(0,0,0,0);
   pipeline.imageProcessing.vignetteBlendMode=BABYLON.ImageProcessingConfiguration.VIGNETTEMODE_MULTIPLY;
-  pipeline.imageProcessing.contrast=1.14;
-  pipeline.imageProcessing.exposure=1.18;
+  pipeline.imageProcessing.contrast=1.15;
+  pipeline.imageProcessing.exposure=1.14;
   pipeline.imageProcessing.toneMappingEnabled=true;
   pipeline.imageProcessing.toneMappingType=BABYLON.ImageProcessingConfiguration.TONEMAPPING_ACES;
   if(pipeline.imageProcessing.colorCurvesEnabled!==undefined){
     pipeline.imageProcessing.colorCurvesEnabled=true;
-    const cc=new BABYLON.ColorCurves();cc.globalSaturation=22;cc.globalContrast=6;cc.highlightsSaturation=10;cc.shadowsDensity=8;
+    const cc=new BABYLON.ColorCurves();cc.globalSaturation=18;cc.globalContrast=6;cc.highlightsSaturation=10;cc.shadowsDensity=8;
     pipeline.imageProcessing.colorCurves=cc;
-  }
-}catch(e){}
-/* SSAO2: cheap ambient-occlusion pass so buildings/terrain/aircraft actually look
-   grounded and 3D instead of flat-shaded blocks. Skipped on touch/low-power devices
-   and folded into the FPS-based quality scaler below (disabled at _gq 0). */
-try{
-  if(!isTouchDev && BABYLON.SSAO2RenderingPipeline && BABYLON.SSAO2RenderingPipeline.IsSupported){
-    const ssao=window._ssao=new BABYLON.SSAO2RenderingPipeline('ssao',scene,{ssaoRatio:.5,blurRatio:.5},[camera]);
-    ssao.radius=3.2;ssao.totalStrength=.9;ssao.base=.15;ssao.expensiveBlur=false;ssao.samples=10;ssao.maxZ=600;
   }
 }catch(e){}
 
 try{
-  const gl=window._glow=new BABYLON.GlowLayer('glow',scene,{blurKernelSize:16});gl.intensity=.45;
+  const gl=window._glow=new BABYLON.GlowLayer('glow',scene,{blurKernelSize:14});gl.intensity=.42;
   scene.meshes.forEach(m=>{if(m.name&&/^(stars|sky)/i.test(m.name))gl.addExcludedMesh(m);});
 }catch(e){}
-try{const p=scene.postProcessRenderPipelineManager.supportedPipelines[0];if(p){p.bloomWeight=.3;p.bloomThreshold=.8;p.imageProcessing.contrast=1.15;p.imageProcessing.exposure=1.1;p.chromaticAberrationEnabled=true;p.chromaticAberration.aberrationAmount=6;p.grainEnabled=true;p.grain.intensity=3;p.grain.animated=true;}}catch(e){}
 try{M.body.environmentIntensity=1.3;M.glass.alpha=.08;cockpitLight.intensity=2.4;cockpitLight2.intensity=1.6;}catch(e){}
 /* ===== 3D BUILDINGS ===== */
 function h2(i,j,k){let n=(Math.imul(i,374761393)+Math.imul(j,668265263)+Math.imul(k,1013904223))|0;n=Math.imul(n^(n>>>13),1274126177);return((n^(n>>>16))>>>0)/4294967296;}
@@ -5701,25 +5701,141 @@ let roofMesh=null,treeMesh=null,trunkMesh=null,osmBuildRequest=0,lastOsmErrorAt=
 const osmCache=new Map();
 window.BKF=[];window.bkMeshes=[];
 window._rtMesh=null;
-const osmBuildingMaterial=new BABYLON.StandardMaterial('osmBuildingM',scene);
-osmBuildingMaterial.diffuseColor=new BABYLON.Color3(1,1,1);
-osmBuildingMaterial.emissiveColor=new BABYLON.Color3(.025,.025,.025);
-osmBuildingMaterial.specularColor=new BABYLON.Color3(.16,.17,.18);
-osmBuildingMaterial.specularPower=32;
-osmBuildingMaterial.backFaceCulling=false;
+
+/* --- Real Satellite Buffer Sampler (captures 192x192 pixel sample of terrainTex) --- */
+const _satSampler={data:null,w:192,h:192,cx:0,cz:0,ext:18000,ready:false,cv:null,ctx:null};
+window._updateSatSampler=(offCanvas,cx,cz,drawn)=>{
+  try{
+    if(!drawn||imagerySource==='osm')return;
+    if(!_satSampler.cv){
+      _satSampler.cv=document.createElement('canvas');
+      _satSampler.cv.width=_satSampler.w;_satSampler.cv.height=_satSampler.h;
+      _satSampler.ctx=_satSampler.cv.getContext('2d',{willReadFrequently:true});
+    }
+    _satSampler.ctx.drawImage(offCanvas,0,0,_satSampler.w,_satSampler.h);
+    _satSampler.data=_satSampler.ctx.getImageData(0,0,_satSampler.w,_satSampler.h).data;
+    _satSampler.cx=cx;_satSampler.cz=cz;_satSampler.ext=CFG.terrainExtent;_satSampler.ready=true;
+  }catch(e){}
+};
+function sampleSatColor(wx,wz){
+  if(!_satSampler.ready||!_satSampler.data)return null;
+  const u=(wx-_satSampler.cx)/_satSampler.ext+.5,v=(wz-_satSampler.cz)/_satSampler.ext+.5;
+  if(u<0||u>1||v<0||v>1)return null;
+  const ix=Math.min(_satSampler.w-1,Math.max(0,(u*_satSampler.w)|0));
+  const iy=Math.min(_satSampler.h-1,Math.max(0,(v*_satSampler.h)|0));
+  const o=(iy*_satSampler.w+ix)*4;
+  return [_satSampler.data[o]/255,_satSampler.data[o+1]/255,_satSampler.data[o+2]/255];
+}
+
+/* --- Shared Real-Satellite Roof & Architectural Facade Materials --- */
+const osmRoofMaterial=new BABYLON.PBRMaterial('osmRoofM',scene);
+osmRoofMaterial.albedoTexture=terrainTex;
+osmRoofMaterial.albedoColor=new BABYLON.Color3(1,1,1);
+osmRoofMaterial.metallic=0.04;
+osmRoofMaterial.roughness=0.88;
+osmRoofMaterial.specularIntensity=0.14;
+osmRoofMaterial.backFaceCulling=false;
+window._syncOsmRoofTex=()=>{osmRoofMaterial.albedoTexture=terrainTex;};
+
+const OSM_FACADE_MATS=(()=>{
+  const mkTex=(kind)=>{
+    const S=256;
+    const diff=new BABYLON.DynamicTexture('bldgD_'+kind,{width:S,height:S},scene,true);
+    const emit=new BABYLON.DynamicTexture('bldgE_'+kind,{width:S,height:S},scene,true);
+    const dc=diff.getContext(),ec=emit.getContext();
+    ec.fillStyle='#000';ec.fillRect(0,0,S,S);
+    const hsh=(a,b)=>{let n=(Math.imul(a,374761393)+Math.imul(b,668265263))|0;n=Math.imul(n^(n>>>13),1274126177);return((n^(n>>>16))>>>0)/4294967296;};
+    if(kind==='glass'){
+      dc.fillStyle='#3d556c';dc.fillRect(0,0,S,S);
+      const floors=4,bays=4,fh=S/floors,bw=S/bays;
+      for(let f=0;f<floors;f++){
+        dc.fillStyle='#243546';dc.fillRect(0,f*fh,S,fh*.22);
+        for(let b=0;b<bays;b++){
+          const r=hsh(f*17+3,b*31+7);
+          const gx=b*bw+4,gy=f*fh+fh*.24,gw=bw-8,gh=fh*.72;
+          const gr=dc.createLinearGradient(gx,gy,gx,gy+gh);
+          gr.addColorStop(0,r>.5?'#648cb0':'#4d7294');
+          gr.addColorStop(1,'#29435c');
+          dc.fillStyle=gr;dc.fillRect(gx,gy,gw,gh);
+          dc.fillStyle='rgba(255,255,255,0.12)';dc.fillRect(gx,gy,gw,3);
+          if(r>.32){
+            ec.fillStyle=r>.72?'#d6eeff':'#ffe3a8';
+            ec.fillRect(gx+2,gy+2,gw-4,gh-4);
+          }
+        }
+      }
+      dc.fillStyle='#1f2e3d';
+      for(let b=0;b<bays;b++)dc.fillRect(b*bw,0,4,S);
+    }else if(kind==='comm'){
+      dc.fillStyle='#bfc5cc';dc.fillRect(0,0,S,S);
+      const floors=4,bays=4,fh=S/floors,bw=S/bays;
+      for(let f=0;f<floors;f++){
+        dc.fillStyle='#aeb5bd';dc.fillRect(0,f*fh,S,5);
+        for(let b=0;b<bays;b++){
+          const r=hsh(f*23+5,b*19+11);
+          const gx=b*bw+6,gy=f*fh+fh*.24,gw=bw-12,gh=fh*.62;
+          dc.fillStyle='#2b3f52';dc.fillRect(gx,gy,gw,gh);
+          dc.fillStyle='#4f6d88';dc.fillRect(gx+2,gy+2,gw-4,gh*.35);
+          if(r>.45){ec.fillStyle=r>.75?'#dff0ff':'#ffd890';ec.fillRect(gx+2,gy+2,gw-4,gh-4);}
+        }
+      }
+    }else if(kind==='res'){
+      dc.fillStyle='#cfc4b4';dc.fillRect(0,0,S,S);
+      const floors=4,bays=4,fh=S/floors,bw=S/bays;
+      for(let f=0;f<floors;f++){
+        dc.fillStyle='rgba(0,0,0,0.08)';dc.fillRect(0,f*fh,S,3);
+        for(let b=0;b<bays;b++){
+          const r=hsh(f*13+9,b*29+3);
+          const gx=b*bw+10,gy=f*fh+fh*.26,gw=bw-20,gh=fh*.56;
+          dc.fillStyle='#7e7469';dc.fillRect(gx-2,gy-2,gw+4,gh+4);
+          dc.fillStyle='#2b3a4a';dc.fillRect(gx,gy,gw,gh);
+          if(r>.52){ec.fillStyle='#ffd282';ec.fillRect(gx+2,gy+2,gw-4,gh-4);}
+        }
+      }
+    }else{
+      dc.fillStyle='#9aa2aa';dc.fillRect(0,0,S,S);
+      for(let x=0;x<S;x+=8){dc.fillStyle=(x&8)?'rgba(255,255,255,0.07)':'rgba(0,0,0,0.08)';dc.fillRect(x,0,4,S);}
+      dc.fillStyle='#6c747d';dc.fillRect(0,0,S,18);dc.fillRect(0,S/2,S,14);
+      for(let b=0;b<4;b++){
+        const gx=b*64+10;
+        dc.fillStyle='#344656';dc.fillRect(gx,28,44,18);dc.fillRect(gx,152,44,18);
+        if((b+1)%2===0){ec.fillStyle='#ffe19c';ec.fillRect(gx+2,30,40,14);}
+      }
+    }
+    diff.update(false);emit.update(false);
+    diff.wrapU=diff.wrapV=BABYLON.Texture.WRAP_ADDRESSMODE;
+    emit.wrapU=emit.wrapV=BABYLON.Texture.WRAP_ADDRESSMODE;
+    diff.anisotropicFilteringLevel=4;emit.anisotropicFilteringLevel=2;
+    const mat=new BABYLON.PBRMaterial('osmWall_'+kind,scene);
+    mat.albedoTexture=diff;
+    mat.emissiveTexture=emit;
+    mat.emissiveColor=new BABYLON.Color3(.04,.04,.04);
+    mat.metallic=kind==='glass'?0.46:(kind==='ind'?0.28:(kind==='comm'?0.10:0.02));
+    mat.roughness=kind==='glass'?0.24:(kind==='ind'?0.52:(kind==='comm'?0.58:0.82));
+    mat.specularIntensity=kind==='glass'?0.68:0.28;
+    mat.backFaceCulling=false;
+    return mat;
+  };
+  return {glass:mkTex('glass'),comm:mkTex('comm'),res:mkTex('res'),ind:mkTex('ind')};
+})();
+setInterval(()=>{
+  const e=currentTOD==='night'?0.92:(currentTOD==='dusk'?0.48:(currentTOD==='golden'?0.16:0.02));
+  for(const m of Object.values(OSM_FACADE_MATS))m.emissiveColor.set(e,e,e);
+},1500);
 
 function osmBounds(cx,cz){
-  const half=CFG.terrainExtent/2,nw=worldToLL(cx-half,cz-half),se=worldToLL(cx+half,cz+half);
+  const half=Math.min(4400,CFG.terrainExtent*0.44);
+  const nw=worldToLL(cx-half,cz-half),se=worldToLL(cx+half,cz+half);
   return {south:Math.max(-85,se.lat),west:nw.lon,north:Math.min(85,nw.lat),east:se.lon};
 }
 async function fetchOsmBuildings(bounds){
-  const key=Object.values(bounds).map(v=>v.toFixed(5)).join(',');
+  const key=Object.values(bounds).map(v=>v.toFixed(4)).join(',');
   if(osmCache.has(key))return osmCache.get(key);
   const bbox=[bounds.south,bounds.west,bounds.north,bounds.east].join(',');
-  const query=`[out:json][timeout:20];way["building"](${bbox});out geom;`;
+  const query=`[out:json][timeout:16][maxsize:20000000];(way["building"](${bbox});way["building:part"](${bbox}););out body geom;`;
   let lastError=null;
-  for(const endpoint of ['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter']){
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),22000);
+  for(const endpoint of ['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter']){
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),16000);
     try{
       const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
         body:new URLSearchParams({data:query}),signal:controller.signal});
@@ -5727,14 +5843,25 @@ async function fetchOsmBuildings(bounds){
       const data=await response.json();
       if(!Array.isArray(data.elements))throw new Error('Overpass returned no building data');
       osmCache.set(key,data.elements);
-      if(osmCache.size>2)osmCache.delete(osmCache.keys().next().value);
+      if(osmCache.size>3)osmCache.delete(osmCache.keys().next().value);
       return data.elements;
     }catch(error){lastError=error;}
     finally{clearTimeout(timer);}
   }
   throw lastError||new Error('OpenStreetMap building request failed');
 }
-function osmHeight(tags){
+function osmParseColor(raw){
+  if(!raw)return null;
+  const s=String(raw).trim().toLowerCase();
+  if(/^#[0-9a-f]{6}$/.test(s))return [parseInt(s.slice(1,3),16)/255,parseInt(s.slice(3,5),16)/255,parseInt(s.slice(5,7),16)/255];
+  if(/^#[0-9a-f]{3}$/.test(s))return [parseInt(s[1]+s[1],16)/255,parseInt(s[2]+s[2],16)/255,parseInt(s[3]+s[3],16)/255];
+  const map={white:[.93,.93,.91],off_white:[.9,.89,.85],cream:[.92,.88,.78],beige:[.84,.78,.68],tan:[.8,.71,.56],sand:[.85,.79,.65],
+    grey:[.62,.64,.66],gray:[.62,.64,.66],light_grey:[.76,.78,.8],dark_grey:[.38,.4,.43],silver:[.75,.78,.82],
+    brown:[.56,.42,.33],red:[.72,.34,.28],brick:[.7,.38,.3],terracotta:[.76,.42,.3],orange:[.8,.52,.3],
+    yellow:[.86,.78,.5],blue:[.44,.58,.74],light_blue:[.6,.74,.86],green:[.46,.6,.5],black:[.22,.24,.26]};
+  return map[s.replace(/[-\s]/g,'_')]||null;
+}
+function osmHeight(tags,area,seed){
   const metres=value=>{
     if(value===undefined)return null;
     const text=String(value).trim(),number=parseFloat(text);
@@ -5742,14 +5869,19 @@ function osmHeight(tags){
     return /ft|feet|'/i.test(text)?number*.3048:number;
   };
   const tagged=metres(tags.height);
-  if(tagged!==null)return BABYLON.Scalar.Clamp(tagged,3,450);
+  if(tagged!==null)return BABYLON.Scalar.Clamp(tagged,3,480);
   const levels=parseFloat(tags['building:levels']);
-  if(Number.isFinite(levels)&&levels>0)return BABYLON.Scalar.Clamp(levels*3.2,3,240);
-  const type=String(tags.building||'').toLowerCase();
-  if(type==='house'||type==='detached'||type==='semidetached_house'||type==='bungalow')return 7;
-  if(type==='industrial'||type==='warehouse'||type==='hangar')return 10;
-  if(type==='church'||type==='cathedral')return 22;
-  return 12;
+  if(Number.isFinite(levels)&&levels>0)return BABYLON.Scalar.Clamp(levels*3.3,3,260);
+  const type=String(tags.building||tags['building:part']||'').toLowerCase();
+  const r=((Math.imul(seed|0,1664525)+1013904223)>>>0)/4294967295;
+  if(type==='house'||type==='detached'||type==='semidetached_house'||type==='bungalow'||type==='cabin'||type==='garage'||type==='shed')return 6.2+r*3.0;
+  if(type==='industrial'||type==='warehouse'||type==='hangar'||type==='retail'||type==='supermarket')return 8.5+r*5.5;
+  if(type==='church'||type==='cathedral')return 20+r*14;
+  if(type==='apartments'||type==='residential'||type==='hotel')return area>1100?(15+r*22):(10+r*11);
+  if(type==='commercial'||type==='office'||type==='public'||type==='hospital'||type==='university')return area>1600?(20+r*34):(12+r*16);
+  if(area>2400)return 18+r*28;
+  if(area>750)return 11+r*13;
+  return 7.5+r*5.5;
 }
 function osmTriangles(points){
   const area=points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+p.x*q.z-q.x*p.z;},0);
@@ -5774,71 +5906,230 @@ function osmTriangles(points){
   if(remaining.length===3)addTriangle(remaining[0],remaining[1],remaining[2]);
   return triangles;
 }
-function createOsmBuildingMeshes(elements,cx,cz){
-  const meshes=[],batchLimit=350;
-  let positions=[],colors=[],indices=[],buildings=0;
+
+function makeCityChunkMesh(name,buf,mat,cx,cz){
+  if(!buf.indices.length)return null;
+  const mesh=new BABYLON.Mesh(name,scene),data=new BABYLON.VertexData();
+  data.positions=new Float32Array(buf.positions);
+  data.colors=new Float32Array(buf.colors);
+  data.uvs=new Float32Array(buf.uvs);
+  data.indices=buf.positions.length/3>65535?new Uint32Array(buf.indices):new Uint16Array(buf.indices);
+  const normals=new Float32Array(buf.positions.length);
+  BABYLON.VertexData.ComputeNormals(data.positions,data.indices,normals);
+  data.normals=normals;
+  data.applyToMesh(mesh,true);
+  mesh.material=mat;
+  mesh.position.set(cx,0,cz);
+  mesh._has=true;
+  mesh.useVertexColors=true;
+  mesh.isPickable=false;
+  mesh.receiveShadows=true;
+  mesh.doNotSyncBoundingInfo=true;
+  mesh.cullingStrategy=BABYLON.AbstractMesh.CULLINGSTRATEGY_BOUNDINGSPHERE_ONLY;
+  mesh.setEnabled(cityOn);
+  mesh.freezeWorldMatrix();
+  return mesh;
+}
+
+async function createOsmBuildingMeshesAsync(elements,cx,cz,request){
+  const E=CFG.terrainExtent,maxDist=Math.min(4600,E*0.46),batchLimit=450;
+  const emptyBuf=()=>({positions:[],colors:[],uvs:[],indices:[]});
+  let roofBuf=emptyBuf();
+  let wallBufs={glass:emptyBuf(),comm:emptyBuf(),res:emptyBuf(),ind:emptyBuf()};
+  let chunkIdx=0,buildingsInChunk=0,accepted=0;
+  const created=[];
+
   const flush=()=>{
-    if(!indices.length)return;
-    const mesh=new BABYLON.Mesh('osmBuildings'+meshes.length,scene),data=new BABYLON.VertexData();
-    data.positions=new Float32Array(positions);data.colors=new Float32Array(colors);
-    data.indices=positions.length/3>65535?new Uint32Array(indices):new Uint16Array(indices);
-    const normals=new Float32Array(positions.length);
-    BABYLON.VertexData.ComputeNormals(data.positions,data.indices,normals);data.normals=normals;
-    data.applyToMesh(mesh,true);mesh.material=osmBuildingMaterial;mesh.position.set(cx,0,cz);
-    mesh._has=true;mesh.useVertexColors=true;mesh.isPickable=false;mesh.alwaysSelectAsActiveMesh=true;mesh.receiveShadows=true;mesh.setEnabled(cityOn);
-    const shadow=window._csm;
-    if(shadow)shadow.getShadowMap().renderList.push(mesh);
-    meshes.push(mesh);positions=[];colors=[];indices=[];buildings=0;
+    const added=[];
+    const rm=makeCityChunkMesh('osmRoof_'+chunkIdx,roofBuf,osmRoofMaterial,cx,cz);
+    if(rm){added.push(rm);cityMeshes.push(rm);}
+    for(const k of ['glass','comm','res','ind']){
+      const wm=makeCityChunkMesh('osmWall_'+k+'_'+chunkIdx,wallBufs[k],OSM_FACADE_MATS[k],cx,cz);
+      if(wm){added.push(wm);cityMeshes.push(wm);}
+    }
+    created.push(...added);
+    chunkIdx++;buildingsInChunk=0;
+    roofBuf=emptyBuf();
+    wallBufs={glass:emptyBuf(),comm:emptyBuf(),res:emptyBuf(),ind:emptyBuf()};
   };
-  const vertex=(x,y,z,color)=>{
-    const index=positions.length/3;positions.push(x-cx,y,z-cz);
-    colors.push(color[0],color[1],color[2],1);return index;
+
+  const pushVert=(buf,x,y,z,u,v,col)=>{
+    const idx=buf.positions.length/3;
+    buf.positions.push(x-cx,y,z-cz);
+    buf.uvs.push(u,v);
+    buf.colors.push(col[0],col[1],col[2],1);
+    return idx;
   };
-  let accepted=0;
-  for(const element of elements){
+  const roofUV=(wx,wz)=>[(wx-cx)/E+0.5,(wz-cz)/E+0.5];
+
+  const extrudeRing=(points,bottom,top,kind,wCol,rCol,reverseWalls)=>{
+    const wb=wallBufs[kind],rb=roofBuf;
+    const bayW=kind==='ind'?8.0:(kind==='res'?4.0:4.4);
+    const floorSpan=kind==='ind'?10.0:13.6;
+    const vTop=Math.max(0.25,(top-bottom)/floorSpan);
+    for(let i=0;i<points.length;i++){
+      const a=points[i],b=points[(i+1)%points.length];
+      const seg=Math.hypot(b.x-a.x,b.z-a.z);
+      const uSpan=Math.max(0.25,seg/bayW);
+      const i0=pushVert(wb,a.x,bottom,a.z,0,0,wCol);
+      const i1=pushVert(wb,b.x,bottom,b.z,uSpan,0,wCol);
+      const i2=pushVert(wb,b.x,top,b.z,uSpan,vTop,wCol);
+      const i3=pushVert(wb,a.x,top,a.z,0,vTop,wCol);
+      if(reverseWalls)wb.indices.push(i0,i2,i1,i0,i3,i2);
+      else wb.indices.push(i0,i1,i2,i0,i2,i3);
+    }
+    const rIdx=[];
+    for(const p of points){
+      const [u,v]=roofUV(p.x,p.z);
+      rIdx.push(pushVert(rb,p.x,top,p.z,u,v,rCol));
+    }
+    const tris=osmTriangles(points);
+    for(let i=0;i<tris.length;i+=3)rb.indices.push(rIdx[tris[i]],rIdx[tris[i+1]],rIdx[tris[i+2]]);
+  };
+
+  const maxElements=Math.min(elements.length,5800);
+  for(let ei=0;ei<maxElements;ei++){
+    if(request!==osmBuildRequest)return {meshes:created,count:accepted,aborted:true};
+    const element=elements[ei];
     if(element.type!=='way'||!element.tags||!element.geometry||element.geometry.length<3)continue;
     const tags=element.tags;
-    if(tags.building==='no'||tags.building==='construction'||element.geometry.length>120)continue;
+    if(tags.building==='no'||tags.building==='construction'||element.geometry.length>100)continue;
+
     const points=[];
     for(const node of element.geometry){
       if(!Number.isFinite(node.lat)||!Number.isFinite(node.lon))continue;
       const w=llToWorld(node.lat,node.lon),last=points[points.length-1];
-      if(!last||Math.hypot(w.x-last.x,w.z-last.z)>.1)points.push(w);
+      if(!last||Math.hypot(w.x-last.x,w.z-last.z)>0.15)points.push(w);
     }
-    if(points.length>2&&Math.hypot(points[0].x-points[points.length-1].x,points[0].z-points[points.length-1].z)<.1)points.pop();
-    if(points.length<3||points.length>120)continue;
-    const centre=points.reduce((a,p)=>({x:a.x+p.x/points.length,z:a.z+p.z/points.length}),{x:0,z:0});
-    if(Math.hypot(centre.x-cx,centre.z-cz)>CFG.terrainExtent*.72)continue;
-    const base=sampleTerrain(centre.x,centre.z);
-    if(!Number.isFinite(base))continue;
-    const height=osmHeight(tags),minLevel=parseFloat(tags.min_height);
+    if(points.length>2&&Math.hypot(points[0].x-points[points.length-1].x,points[0].z-points[points.length-1].z)<0.15)points.pop();
+    if(points.length<3||points.length>100)continue;
+
+    let sx=0,sz=0;
+    for(const p of points){sx+=p.x;sz+=p.z;}
+    const centre={x:sx/points.length,z:sz/points.length};
+    if(Math.hypot(centre.x-cx,centre.z-cz)>maxDist)continue;
+
+    const baseC=sampleTerrain(centre.x,centre.z);
+    if(!Number.isFinite(baseC))continue;
+    const pHalf=points[(points.length>>1)];
+    const baseMin=Math.min(baseC,sampleTerrain(points[0].x,points[0].z),sampleTerrain(pHalf.x,pHalf.z))-1.6;
+
+    const area2=points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+p.x*q.z-q.x*p.z;},0);
+    const area=Math.abs(area2)*0.5;
+    if(area<8)continue;
+
+    const seed=(Number(element.id)||accepted+1)|0;
+    const height=osmHeight(tags,area,seed);
+    const minLevel=parseFloat(tags.min_height);
     const minHeight=Number.isFinite(minLevel)?BABYLON.Scalar.Clamp(minLevel,0,height-1):0;
-    const type=String(tags.building||'').toLowerCase();
-    let color=type==='industrial'||type==='warehouse'||type==='hangar'?[.55,.57,.58]:
-      type==='commercial'||type==='office'?[.52,.62,.69]:
-      type==='house'||type==='detached'||type==='residential'?[.78,.72,.63]:[.68,.7,.71];
-    const variation=.92+((Math.imul((Number(element.id)||accepted+1)|0,1664525)+1013904223)>>>0)/4294967295*.16;
-    color=color.map(v=>Math.min(1,v*variation));
-    const roof=color.map(v=>Math.min(1,v*1.08));
-    const area=points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+p.x*q.z-q.x*p.z;},0);
-    const reverseWalls=area>0,bottom=base+minHeight,top=base+height,baseIndex=positions.length/3;
-    for(let i=0;i<points.length;i++){
-      const a=points[i],b=points[(i+1)%points.length];
-      const i0=vertex(a.x,bottom,a.z,color),i1=vertex(b.x,bottom,b.z,color);
-      const i2=vertex(b.x,top,b.z,color),i3=vertex(a.x,top,a.z,color);
-      if(reverseWalls)indices.push(i0,i2,i1,i0,i3,i2);
-      else indices.push(i0,i1,i2,i0,i2,i3);
+    const bottom=baseMin+minHeight,top=baseC+height;
+    if(top<=bottom+1)continue;
+
+    const type=String(tags.building||tags['building:part']||'').toLowerCase();
+    const matTag=String(tags['building:material']||'').toLowerCase();
+    const kind=(matTag==='glass'||type==='office'||(type==='commercial'&&height>24)||height>42)?'glass':
+      (type==='industrial'||type==='warehouse'||type==='hangar'||type==='retail'||type==='supermarket'||matTag==='metal')?'ind':
+      (type==='house'||type==='detached'||type==='semidetached_house'||type==='bungalow'||type==='apartments'||type==='residential'||type==='terrace')?'res':'comm';
+
+    const tagWall=osmParseColor(tags['building:colour']);
+    const tagRoof=osmParseColor(tags['roof:colour']);
+    const satCol=sampleSatColor(centre.x,centre.z);
+    const vRand=0.92+(((Math.imul(seed,1664525)+1013904223)>>>0)/4294967295)*0.16;
+
+    let wallCol;
+    if(tagWall)wallCol=tagWall;
+    else if(satCol){
+      const baseT=kind==='glass'?[0.82,0.90,0.98]:(kind==='res'?[0.92,0.88,0.82]:[0.88,0.90,0.92]);
+      wallCol=[
+        BABYLON.Scalar.Clamp((baseT[0]*0.68+satCol[0]*0.32)*vRand,0.35,1),
+        BABYLON.Scalar.Clamp((baseT[1]*0.68+satCol[1]*0.32)*vRand,0.35,1),
+        BABYLON.Scalar.Clamp((baseT[2]*0.68+satCol[2]*0.32)*vRand,0.35,1)
+      ];
+    }else{
+      wallCol=[vRand,vRand,vRand];
     }
-    const roofIndices=[];
-    points.forEach(p=>roofIndices.push(vertex(p.x,top,p.z,roof)));
-    const triangles=osmTriangles(points);
-    for(let i=0;i<triangles.length;i+=3)indices.push(roofIndices[triangles[i]],roofIndices[triangles[i+1]],roofIndices[triangles[i+2]]);
-    if(positions.length/3-baseIndex>0){accepted++;buildings++;}
-    if(buildings>=batchLimit)flush();
+    const roofCol=tagRoof?[0.65+tagRoof[0]*0.35,0.65+tagRoof[1]*0.35,0.65+tagRoof[2]*0.35]:[1,1,1];
+    const reverseWalls=area2>0;
+
+    extrudeRing(points,bottom,top,kind,wallCol,roofCol,reverseWalls);
+
+    // Tall urban towers get a stepped rooftop penthouse/mechanical core while preserving real satellite roof deck
+    if(height>=24&&points.length>=4&&points.length<=16&&area>240&&area<6000){
+      const phPts=points.map(p=>({x:centre.x+(p.x-centre.x)*0.48,z:centre.z+(p.z-centre.z)*0.48}));
+      const phH=Math.min(7.5,2.8+height*0.06);
+      extrudeRing(phPts,top-0.2,top+phH,'comm',[0.68,0.70,0.73],roofCol,reverseWalls);
+    }
+
+    accepted++;buildingsInChunk++;
+    if(buildingsInChunk>=batchLimit){
+      flush();
+      await new Promise(r=>setTimeout(r,0));
+      if(request!==osmBuildRequest)return {meshes:created,count:accepted,aborted:true};
+    }else if((ei&255)===255){
+      await new Promise(r=>setTimeout(r,0));
+      if(request!==osmBuildRequest)return {meshes:created,count:accepted,aborted:true};
+    }
   }
   flush();
-  return {meshes,count:accepted};
+  return {meshes:created,count:accepted,aborted:false};
 }
+
+function generateSatFallbackBuildings(cx,cz){
+  if(!_satSampler.ready||!_satSampler.data)return {meshes:[],count:0};
+  const E=CFG.terrainExtent,W=_satSampler.w,H=_satSampler.h,D=_satSampler.data;
+  const roofBuf={positions:[],colors:[],uvs:[],indices:[]};
+  const wallBuf={positions:[],colors:[],uvs:[],indices:[]};
+  const pushV=(buf,x,y,z,u,v,c)=>{const idx=buf.positions.length/3;buf.positions.push(x-cx,y,z-cz);buf.uvs.push(u,v);buf.colors.push(c[0],c[1],c[2],1);return idx;};
+  let count=0;
+  const maxB=650,rad=3400;
+  const stepPx=3;
+  for(let iy=10;iy<H-10&&count<maxB;iy+=stepPx){
+    for(let ix=10;ix<W-10&&count<maxB;ix+=stepPx){
+      const o=(iy*W+ix)*4;
+      const r=D[o],g=D[o+1],b=D[o+2];
+      // Skip dark water, dense forests, and near-black pixels; detect urban roof structures
+      const luma=0.299*r+0.587*g+0.114*b;
+      if(luma<68||luma>245)continue;
+      if(g>r*1.12+12&&g>b*1.12+10)continue; // vegetation
+      if(b>r*1.14+14&&luma<135)continue;    // water
+      const oR=((iy*W+ix+1)*4),oD=(((iy+1)*W+ix)*4);
+      const contrast=Math.abs(r-D[oR])+Math.abs(g-D[oR+1])+Math.abs(r-D[oD])+Math.abs(g-D[oD+1]);
+      if(contrast<26)continue;
+
+      const wx=_satSampler.cx+(ix/W-0.5)*E;
+      const wz=_satSampler.cz+(iy/H-0.5)*E;
+      if(Math.hypot(wx-cx,wz-cz)>rad)continue;
+      if(typeof airportBlend==='function'&&airportBlend(wx,wz))continue;
+
+      const base=sampleTerrain(wx,wz);
+      if(!Number.isFinite(base)||base<0.5)continue;
+      const seed=(ix*73856093^iy*19349663)>>>0;
+      const hw=10+(seed%14),hd=10+((seed>>>4)%14);
+      const h=7+((seed>>>8)%18)+(luma>165?6:0);
+      const ang=((seed>>>12)%8)*(Math.PI/8);
+      const ca=Math.cos(ang),sa=Math.sin(ang);
+      const pts=[[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]].map(([px,pz])=>({x:wx+px*ca-pz*sa,z:wz+px*sa+pz*ca}));
+      const bottom=base-1.5,top=base+h;
+      const wCol=[0.84,0.85,0.86],rCol=[1,1,1];
+      for(let i=0;i<4;i++){
+        const p0=pts[i],p1=pts[(i+1)%4],seg=Math.hypot(p1.x-p0.x,p1.z-p0.z)/4.2,vT=h/13.6;
+        const i0=pushV(wallBuf,p0.x,bottom,p0.z,0,0,wCol),i1=pushV(wallBuf,p1.x,bottom,p1.z,seg,0,wCol);
+        const i2=pushV(wallBuf,p1.x,top,p1.z,seg,vT,wCol),i3=pushV(wallBuf,p0.x,top,p0.z,0,vT,wCol);
+        wallBuf.indices.push(i0,i2,i1,i0,i3,i2);
+      }
+      const ri=pts.map(p=>pushV(roofBuf,p.x,top,p.z,(p.x-cx)/E+0.5,(p.z-cz)/E+0.5,rCol));
+      roofBuf.indices.push(ri[0],ri[2],ri[1],ri[0],ri[3],ri[2]);
+      count++;
+    }
+  }
+  const meshes=[];
+  const rm=makeCityChunkMesh('satRoofFB',roofBuf,osmRoofMaterial,cx,cz);
+  const wm=makeCityChunkMesh('satWallFB',wallBuf,OSM_FACADE_MATS.comm,cx,cz);
+  if(rm){meshes.push(rm);cityMeshes.push(rm);}
+  if(wm){meshes.push(wm);cityMeshes.push(wm);}
+  return {meshes,count};
+}
+
 function clearCityMeshes(){
   const old=cityMeshes.splice(0),shadow=window._csm;
   if(shadow){
@@ -5847,19 +6138,28 @@ function clearCityMeshes(){
   }
   old.forEach(mesh=>mesh.dispose());
 }
+function runSatFallbackWhenReady(cx,cz,request,tries){
+  if(request!==osmBuildRequest)return;
+  if(_satSampler.ready&&_satSampler.data){generateSatFallbackBuildings(cx,cz);return;}
+  if(tries<12)setTimeout(()=>runSatFallbackWhenReady(cx,cz,request,tries+1),800);
+}
 function buildCity(cx,cz){
   const request=++osmBuildRequest,bounds=osmBounds(cx,cz);
   clearCityMeshes();
-  fetchOsmBuildings(bounds).then(elements=>{
+  fetchOsmBuildings(bounds).then(async elements=>{
     if(request!==osmBuildRequest)return;
-    const result=createOsmBuildingMeshes(elements,cx,cz);
-    cityMeshes.push(...result.meshes);
-    if(!result.count)console.info('[OpenStreetMap] No mapped buildings in this area.');
+    const result=await createOsmBuildingMeshesAsync(elements,cx,cz,request);
+    if(request!==osmBuildRequest||result.aborted)return;
+    if(!result.count){
+      console.info('[Satellite 3D] No OSM footprints; generating satellite-derived 3D buildings.');
+      runSatFallbackWhenReady(cx,cz,request,0);
+    }
   }).catch(error=>{
     if(request!==osmBuildRequest)return;
     console.warn('[OpenStreetMap buildings]',error);
+    runSatFallbackWhenReady(cx,cz,request,0);
     const now=Date.now();
-    if(now-lastOsmErrorAt>60000){lastOsmErrorAt=now;showMsg('OPENSTREETMAP BUILDINGS UNAVAILABLE',3500);}
+    if(now-lastOsmErrorAt>60000){lastOsmErrorAt=now;showMsg('USING SATELLITE 3D BUILDING FALLBACK',3000);}
   });
 }
 {
@@ -7021,8 +7321,8 @@ let landingOn=true;const llights=[];
     cone2.material=bm2;cone2.parent=aircraftRoot;cone2.rotation.x=Math.PI/2+.16;cone2.position.set(sx*5.5,-1.3-14,5+140);cone2.isPickable=false;cone2.applyFog=false;sp._coneInner=cone2;
   }
   const setLL=on=>{landingOn=on;llights.forEach(l=>{l.setEnabled(on);l._glare.setEnabled(on);l._cone.setEnabled(on&&nightMode!==false);l._coneInner.setEnabled(on&&nightMode!==false);});};
-  scene.materials.forEach(m=>m.maxSimultaneousLights=8);scene.onNewMaterialAddedObservable.add(m=>m.maxSimultaneousLights=8);
-  scene.textures.forEach(t=>{try{t.anisotropicFilteringLevel=16;}catch(e){}});scene.onNewTextureAddedObservable.add(t=>{try{t.anisotropicFilteringLevel=16;}catch(e){}});
+  scene.materials.forEach(m=>m.maxSimultaneousLights=4);scene.onNewMaterialAddedObservable.add(m=>m.maxSimultaneousLights=4);
+  scene.textures.forEach(t=>{try{t.anisotropicFilteringLevel=4;}catch(e){}});scene.onNewTextureAddedObservable.add(t=>{try{t.anisotropicFilteringLevel=4;}catch(e){}});
   window.addEventListener('keydown',e=>{if(e.code==='KeyL'&&!e.shiftKey&&!/INPUT|SELECT/.test((e.target||{}).tagName||'')){setLL(!landingOn);showMsg('LANDING LIGHTS '+(landingOn?'ON':'OFF'));}});
   scene.registerBeforeRender(()=>{const agl=plane.pos.y-sampleSurface(plane.pos.x,plane.pos.z);const night=(typeof nightMode!=='undefined')?nightMode:false;
     const kS=Math.max(.3,(()=>{try{const f=(window._FLEET||[]).find(x=>x.model===window._activeModelId);return f&&f.camScale?Math.max(.45,f.camScale):1;}catch(e){return 1;}})());
@@ -7047,7 +7347,7 @@ let landingOn=true;const llights=[];
       const night=(typeof nightMode!=='undefined')?nightMode:false;
       if(!(landingOn&&night)){pool.setEnabled(false);return;}
       plane.quat.toRotationMatrix(qm);BABYLON.Vector3.TransformNormalToRef(new BABYLON.Vector3(0,0,1),qm,fw);
-      const dy=Math.tan(.16);let lo=0,hi=3000,hitOK=false;
+      const dy=Math.tan(.16);let lo=0,hi=3000;
       const gy=t=>{const px=plane.pos.x+fw.x*t,pz=plane.pos.z+fw.z*t;return plane.pos.y+fw.y*t-dy*t-sampleSurface(px,pz);};
       if(gy(hi)>0){pool.setEnabled(false);return;}
       if(gy(0)<0){pool.setEnabled(false);return;}
@@ -7057,19 +7357,17 @@ let landingOn=true;const llights=[];
       const sz=Math.max(26,t*.6);pool.scaling.set(sz*.9,1,sz*1.5);pool.setEnabled(true);pm.alpha=Math.max(.4,Math.min(1,1.3-t/2200));
     });
   })();
-  try{const dp=scene.postProcessRenderPipelineManager.supportedPipelines[0];if(dp){dp.samples=isTouchDev?1:4;dp.sharpen.edgeAmount=.45;dp.bloomWeight=.38;dp.imageProcessing.contrast=1.22;}}catch(e){}
-  if(!isTouchDev){try{engine.setHardwareScalingLevel(1/Math.min(window.devicePixelRatio||1,1.75));}catch(e){}}
 })();
 
 (function(){
   try{const dp=scene.postProcessRenderPipelineManager.supportedPipelines[0];
-    if(dp){const cc=new BABYLON.ColorCurves();cc.globalSaturation=14;cc.shadowsHue=215;cc.shadowsDensity=22;cc.highlightsHue=42;cc.highlightsDensity=14;dp.imageProcessing.colorCurves=cc;dp.imageProcessing.colorCurvesEnabled=true;}}catch(e){console.warn('grade',e);}
+    if(dp){const cc=new BABYLON.ColorCurves();cc.globalSaturation=14;cc.shadowsHue=215;cc.shadowsDensity=18;cc.highlightsHue=42;cc.highlightsDensity=12;dp.imageProcessing.colorCurves=cc;dp.imageProcessing.colorCurvesEnabled=true;}}catch(e){console.warn('grade',e);}
   if(isTouchDev||!BABYLON.CascadedShadowGenerator)return;
   try{
-    const csm=window._csm=new BABYLON.CascadedShadowGenerator(2048,sun);
-    csm.numCascades=3;csm.lambda=.85;csm.shadowMaxZ=900;csm.stabilizeCascades=true;
-    csm.bias=.005;csm.normalBias=.04;csm.setDarkness(.3);
-    csm.filter=BABYLON.ShadowGenerator.FILTER_PCF;csm.filteringQuality=BABYLON.ShadowGenerator.QUALITY_MEDIUM;
+    const csm=window._csm=new BABYLON.CascadedShadowGenerator(1024,sun);
+    csm.numCascades=2;csm.lambda=.85;csm.shadowMaxZ=550;csm.stabilizeCascades=true;
+    csm.bias=.005;csm.normalBias=.04;csm.setDarkness(.32);
+    csm.filter=BABYLON.ShadowGenerator.FILTER_PCF;csm.filteringQuality=BABYLON.ShadowGenerator.QUALITY_LOW;
     terrainMesh.receiveShadows=true;
     const rl=csm.getShadowMap().renderList;
     const refresh=()=>{
@@ -7078,28 +7376,22 @@ let landingOn=true;const llights=[];
         const a=m.material&&m.material.alpha;if(a!==undefined&&a<.5)return;
         if(/^(llg|llcone|emb|name)/.test(m.name))return;
         m._shc=true;rl.push(m);});
-      (window.bkMeshes||[]).concat(roofMesh?[roofMesh]:[],treeMesh?[treeMesh]:[],trunkMesh?[trunkMesh]:[]).forEach(m=>{m.receiveShadows=true;if(!m._shc){m._shc=true;rl.push(m);}});
-      scene.meshes.forEach(m=>{if(m.name==='apb')m.receiveShadows=true;});
     };
-    refresh();setInterval(refresh,2000);
+    window._refreshShadows=refresh;
+    refresh();setInterval(refresh,6000);
     window.addEventListener('keydown',e=>{if(e.code==='KeyH'&&!/INPUT|SELECT|TEXTAREA/.test((e.target||{}).tagName||'')){sun.shadowEnabled=!sun.shadowEnabled;showMsg('SHADOWS '+(sun.shadowEnabled?'ON':'OFF'),1500);}});
   }catch(e){console.warn('shadows',e);}
 })();
 
 (function(){
-  try{const dp=scene.postProcessRenderPipelineManager.supportedPipelines[0];
-    if(dp){dp.chromaticAberration.aberrationAmount=1.5;dp.grain.intensity=1.2;dp.bloomKernel=64;dp.bloomScale=.6;
-      dp.imageProcessing.vignetteWeight=1.1;}}catch(e){}
   if(isTouchDev)return;
   try{
-    scene.lights.forEach(l=>{const sg=l.getShadowGenerator&&l.getShadowGenerator();if(sg&&sg.filteringQuality!==undefined){sg.filteringQuality=BABYLON.ShadowGenerator.QUALITY_HIGH;if(sg.shadowMaxZ!==undefined)sg.shadowMaxZ=1400;if(sg.setDarkness)sg.setDarkness(.22);}});
-  }catch(e){console.warn('shq',e);}
-  try{
     if(BABYLON.SSAO2RenderingPipeline&&BABYLON.SSAO2RenderingPipeline.IsSupported){
-      window._mkSSAO=()=>{const ss=new BABYLON.SSAO2RenderingPipeline('ssao',scene,{ssaoRatio:.5,blurRatio:.5},[camera]);
-        ss.radius=1.6;ss.totalStrength=1.1;ss.base=.12;ss.samples=12;ss.maxZ=220;ss.minZDistance=.05;ss.expensiveBlur=true;return ss;};
+      window._mkSSAO=()=>{const ss=new BABYLON.SSAO2RenderingPipeline('ssao',scene,{ssaoRatio:.45,blurRatio:.45},[camera]);
+        ss.radius=1.8;ss.totalStrength=.85;ss.base=.15;ss.samples=8;ss.maxZ=240;ss.minZDistance=.05;ss.expensiveBlur=false;return ss;};
       window.addEventListener('keydown',e=>{if(e.code==='KeyJ'&&e.shiftKey&&!/INPUT|SELECT|TEXTAREA/.test((e.target||{}).tagName||'')){
         const on=!window._ssaoOff;window._ssaoOff=on;
+        if(!on&&!window._ssao&&window._mkSSAO)window._ssao=window._mkSSAO();
         const ppm=scene.postProcessRenderPipelineManager;
         const attached=!!(window._ssao&&window._ssao.cameras&&window._ssao.cameras.indexOf(camera)!==-1);
         if(on&&attached&&ppm.detachCamerasFromRenderPipeline)ppm.detachCamerasFromRenderPipeline('ssao',[camera]);
@@ -8337,12 +8629,10 @@ scene.registerBeforeRender(()=>{
   terrainCheckTimer-=dt;
   if(terrainCheckTimer<=0&&!plane.crashed){
     terrainCheckTimer=.5;
-    {const on=(plane.pos.y-sampleTerrain(plane.pos.x,plane.pos.z))<1100;if(on!==cityOn){cityOn=on;bMeshes.forEach(m=>m.setEnabled(on&&!!m._has));cityMeshes.forEach(m=>m.setEnabled(on&&!!m._has));}}
+    {const on=(plane.pos.y-sampleTerrain(plane.pos.x,plane.pos.z))<2200;if(on!==cityOn){cityOn=on;bMeshes.forEach(m=>m.setEnabled(on&&!!m._has));cityMeshes.forEach(m=>m.setEnabled(on&&!!m._has));}}
     const dx=plane.pos.x-terrainCenter.x,dz=plane.pos.z-terrainCenter.z;
     if(dx*dx+dz*dz>CFG.rebuildDist*CFG.rebuildDist)rebuildTerrainAsync(plane.pos.x,plane.pos.z);
   }
-  fpsAcc+=dt;if(fpsAcc>2.5){fpsAcc=0;const f=engine.getFps();
-    if(f>58&&hwScale>1/Math.min(window.devicePixelRatio||1,1.5)+.01){hwScale=Math.max(1,hwScale-.15);engine.setHardwareScalingLevel(hwScale);}}
   hudTick+=dt;
   if(hudTick>.05){hudTick=0;updateHUD();updateChips();updateFaultHUD();}
   if(msgTimer>0){msgTimer-=dt;if(msgTimer<=0)el.msg.style.opacity=0;}
@@ -8550,10 +8840,10 @@ startBtn.addEventListener('click',async()=>{
 
   // --- RESOLUTION SETTINGS ---
   const RES_SETTINGS = {
-    low:   { tex: 1024, tiles: 48,   zoom: 16 },
-    med:   { tex: 2048, tiles: 96,   zoom: 17 },
-    high:  { tex: 4096, tiles: 600,  zoom: 18 },  // was 144
-    ultra: { tex: 4096, tiles: 1000, zoom: 19 }   // was 288
+    low:   { tex: 1024, tiles: 36,   zoom: 16 },
+    med:   { tex: 2048, tiles: 72,   zoom: 17 },
+    high:  { tex: 4096, tiles: 256,  zoom: 18 },
+    ultra: { tex: 4096, tiles: 484,  zoom: 19 }
 };
   const resSelect = document.getElementById('resSelect');
   const resVal = resSelect ? resSelect.value : 'med';
@@ -8568,8 +8858,9 @@ startBtn.addEventListener('click',async()=>{
       terrainTex = new BABYLON.DynamicTexture('terrainTex', {width: CFG.texSize, height: CFG.texSize}, scene, true);
       terrainTex.wrapU = BABYLON.Texture.CLAMP_ADDRESSMODE;
       terrainTex.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
-      terrainTex.anisotropicFilteringLevel = 16;
+      terrainTex.anisotropicFilteringLevel = 4;
       terrainMat.albedoTexture = terrainTex;
+      try{if(window._syncOsmRoofTex)window._syncOsmRoofTex();}catch(e){}
   }
   // ---------------------------
   
@@ -10358,7 +10649,7 @@ NJ.forEach(p=>{if(p.analog)ANALOG_SET.add(p.id);if(p.brand==='airbus')AIRBUS_SET
         for(let i=0;i<14;i++){const x=S/2+(Math.random()-.5)*S*.42,y=S/2+(Math.random()-.5)*S*.42,r=S*(.16+Math.random()*.16);
           const g=c.createRadialGradient(x,y,1,x,y,r);g.addColorStop(0,'rgba(255,255,255,.55)');g.addColorStop(.6,'rgba(255,255,255,.25)');g.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=g;c.fillRect(0,0,S,S);}});
       cloudRoot.getChildMeshes().forEach(m=>m.isVisible=false);
-      const NCL=HQ?46:22,PER=HQ?26:14,TILE=46000;
+      const NCL=HQ?24:14,PER=HQ?10:7,TILE=46000;
       const sps=new BABYLON.SolidParticleSystem('cumulus',scene,{updatable:true,isPickable:false});
       const q=BABYLON.MeshBuilder.CreatePlane('cuq',{size:1},scene);
       sps.billboard=true;sps.addShape(q,NCL*PER);q.dispose();
@@ -10366,120 +10657,131 @@ NJ.forEach(p=>{if(p.analog)ANALOG_SET.add(p.id);if(p.brand==='airbus')AIRBUS_SET
       const mat=new BABYLON.StandardMaterial('cuM',scene);mat.diffuseTexture=puffTex;mat.useAlphaFromDiffuseTexture=true;mat.disableLighting=true;
       mat.emissiveColor=new BABYLON.Color3(1,1,1);mat.backFaceCulling=false;mat.alphaMode=BABYLON.Engine.ALPHA_COMBINE;mat.fogEnabled=true;
       cm.material=mat;cm.alwaysSelectAsActiveMesh=true;cm.isPickable=false;
-      const C=[];for(let i=0;i<NCL;i++)C.push({x:(Math.random()-.5)*TILE,z:(Math.random()-.5)*TILE,y:1500+Math.random()*1800,w:500+Math.random()*900,tall:.5+Math.random()*.9});
-      sps.computeParticleTextures=false;sps.depthSortParticles=true;sps.sortParticles=true;
+      const C=[];for(let i=0;i<NCL;i++)C.push({x:(Math.random()-.5)*TILE,z:(Math.random()-.5)*TILE,y:1500+Math.random()*1800,w:550+Math.random()*950,tall:.5+Math.random()*.85});
+      sps.computeParticleTextures=false;sps.depthSortParticles=false;sps.sortParticles=false;
       sps.initParticles=()=>{for(let i=0;i<sps.nbParticles;i++){const p=sps.particles[i],cl=C[(i/PER)|0],k=i%PER;
         const a=Math.random()*Math.PI*2,rr=Math.sqrt(Math.random()),hgt=Math.pow(Math.random(),1.6);
         p._o=new V3(Math.cos(a)*rr*cl.w*(1-hgt*.55),hgt*cl.w*cl.tall,Math.sin(a)*rr*cl.w*.7*(1-hgt*.55));
-        const sz=cl.w*(.45+Math.random()*.5)*(1-hgt*.35);p.scaling.set(sz,sz,sz);p._hgt=hgt;p._cl=cl;p._k=k;}};
+        const sz=cl.w*(.55+Math.random()*.55)*(1-hgt*.35);p.scaling.set(sz,sz,sz);p._hgt=hgt;p._cl=cl;p._k=k;}};
       sps.initParticles();
       let tint=1;
       sps.updateParticle=p=>{const cl=p._cl,px=plane.pos.x,pz=plane.pos.z;
         const wx=((cl.x-px)%TILE+TILE*1.5)%TILE-TILE/2,wz=((cl.z-pz)%TILE+TILE*1.5)%TILE-TILE/2;
-        const show=p._k<PER&&((C.indexOf(cl))/NCL)<Math.min(1,(currentWeather.cloudCount||1)*.45);
+        const show=p._k<PER&&((cl._i)/NCL)<Math.min(1,(currentWeather.cloudCount||1)*.45);
         p.isVisible=show;
         p.position.set(px+wx+p._o.x,cl.y+p._o.y,pz+wz+p._o.z);
-        const l=(.62+.38*p._hgt)*tint;p.color.r=l;p.color.g=l;p.color.b=Math.min(1,l*1.05+.03);p.color.a=.95;
+        const l=(.62+.38*p._hgt)*tint;p.color.r=l;p.color.g=l;p.color.b=Math.min(1,l*1.05+.03);p.color.a=.92;
         return p;};
-      if(C.indexOf)C.forEach((c,i)=>c._i=i);
-      let fr=0;
+      C.forEach((c,i)=>c._i=i);
+      let fr=0,lastPx=-1e9,lastPz=-1e9;
+      sps.setParticles();
       scene.onBeforeRenderObservable.add(()=>{
-        fr++;if(fr%(window._gq>=2?2:4))return;
-        const t=TOD[currentTOD]||TOD.noon;tint=(currentWeather.cloudB||1)*(currentTOD==='night'?.12:currentTOD==='dusk'?.45:currentTOD==='golden'?.9:1);
-        if(currentTOD==='golden'){mat.emissiveColor.set(1,.82,.66);}else mat.emissiveColor.set(1,1,1);
+        fr++;
+        const step=(window._gq>=2?6:10);
+        const moved=(Math.abs(plane.pos.x-lastPx)+Math.abs(plane.pos.z-lastPz))>120;
+        if((fr%step)!==0&&!moved)return;
+        lastPx=plane.pos.x;lastPz=plane.pos.z;
+        tint=(currentWeather.cloudB||1)*(currentTOD==='night'?.12:currentTOD==='dusk'?.45:currentTOD==='golden'?.9:1);
+        if(currentTOD==='golden')mat.emissiveColor.set(1,.82,.66);else mat.emissiveColor.set(1,1,1);
         sps.setParticles();
       });
-      setInterval(()=>cloudRoot.getChildMeshes().forEach(m=>m.isVisible=false),3000);
     }catch(e){console.warn('cumulus',e);}
     if(HQ)try{
       const sd=BABYLON.MeshBuilder.CreatePlane('sunDisc',{size:900},scene);
       const sdm=new BABYLON.StandardMaterial('sunDiscM',scene);sdm.emissiveColor=new BABYLON.Color3(1,.93,.78);sdm.disableLighting=true;sdm.fogEnabled=false;sd.material=sdm;
       sd.billboardMode=BABYLON.Mesh.BILLBOARDMODE_ALL;sd.applyFog=false;sd.isPickable=false;
-      window._mkGodrays=()=>{const v=new BABYLON.VolumetricLightScatteringPostProcess('godrays',{postProcessRatio:1,passRatio:.4},camera,sd,60,BABYLON.Texture.BILINEAR_SAMPLINGMODE,engine,false);
-        v.exposure=.18;v.decay=.965;v.weight=.5;v.density=.9;return v;};
-      scene.onBeforeRenderObservable.add(()=>{const d=sun.direction;const cp=scene.activeCamera.globalPosition;const vls=window._vls;
+      window._mkGodrays=()=>{const v=new BABYLON.VolumetricLightScatteringPostProcess('godrays',{postProcessRatio:1,passRatio:.35},camera,sd,48,BABYLON.Texture.BILINEAR_SAMPLINGMODE,engine,false);
+        v.exposure=.16;v.decay=.965;v.weight=.45;v.density=.9;return v;};
+      scene.onBeforeRenderObservable.add(()=>{const vls=window._vls;if(!vls){sd.setEnabled(false);return;}
+        const d=sun.direction,cp=scene.activeCamera.globalPosition;
         sd.position.set(cp.x-d.x*40000,cp.y-d.y*40000,cp.z-d.z*40000);
-        const up=-d.y;sd.setEnabled(up>-.02&&currentTOD!=='night');if(vls)vls.exposure=.18*Math.max(0,Math.min(1,up*3))*(currentWeather.sun||1);});
+        const up=-d.y;sd.setEnabled(up>-.02&&currentTOD!=='night');vls.exposure=.16*Math.max(0,Math.min(1,up*3))*(currentWeather.sun||1);});
     }catch(e){console.warn('godrays',e);}
-    let skid=null;
     try{
       const st=window._smokeTex||mkT('tsT',64,(c,S)=>{const g=c.createRadialGradient(S/2,S/2,1,S/2,S/2,S/2);g.addColorStop(0,'rgba(255,255,255,.7)');g.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=g;c.fillRect(0,0,S,S);});
-      const tps=new BABYLON.ParticleSystem('tyreSmoke',900,scene);tps.particleTexture=st;
+      const tps=new BABYLON.ParticleSystem('tyreSmoke',400,scene);tps.particleTexture=st;
       tps.emitter=new V3(0,0,0);tps.minEmitBox=new V3(-.5,0,-.5);tps.maxEmitBox=new V3(.5,.2,.5);
       tps.color1=new BABYLON.Color4(.85,.85,.85,.55);tps.color2=new BABYLON.Color4(.7,.7,.72,.4);tps.colorDead=new BABYLON.Color4(.6,.6,.6,0);
-      tps.minSize=1.2;tps.maxSize=3.2;tps.minLifeTime=1.2;tps.maxLifeTime=3.2;tps.emitRate=0;tps.manualEmitCount=0;
+      tps.minSize=1.2;tps.maxSize=3.2;tps.minLifeTime=1.0;tps.maxLifeTime=2.5;tps.emitRate=0;tps.manualEmitCount=0;
       tps.minEmitPower=1;tps.maxEmitPower=4;tps.direction1=new V3(-1,.6,-1);tps.direction2=new V3(1,1.6,1);tps.gravity=new V3(0,.6,0);
-      tps.addSizeGradient(0,1);tps.addSizeGradient(1,4.5);tps.blendMode=BABYLON.ParticleSystem.BLENDMODE_STANDARD;tps.start();
+      tps.addSizeGradient(0,1);tps.addSizeGradient(1,4.5);tps.blendMode=BABYLON.ParticleSystem.BLENDMODE_STANDARD;
       const sk=BABYLON.MeshBuilder.CreateGround('skidM',{width:.55,height:14},scene);
       const skm=new BABYLON.StandardMaterial('skidMat',scene);skm.diffuseColor=new BABYLON.Color3(.04,.04,.04);skm.specularColor=BABYLON.Color3.Black();skm.alpha=.55;skm.zOffset=-4;
-      sk.material=skm;sk.isPickable=false;sk.alwaysSelectAsActiveMesh=true;skid=sk;let nSk=0;
+      sk.material=skm;sk.isPickable=false;sk.alwaysSelectAsActiveMesh=true;let nSk=0;
       window._onTouchdown=(sink,hs,noGear,water)=>{
         if(noGear||water||hs<20)return;
         const m=new BABYLON.Matrix();plane.quat.toRotationMatrix(m);
         const r=V3.TransformNormal(new V3(1,0,0),m),f=V3.TransformNormal(new V3(0,0,1),m);
         const track=Math.max(1.6,(ACFG.gearHeight||2.5)*.9),gy=sampleSurface(plane.pos.x,plane.pos.z);
-        const yaw=Math.atan2(f.x,f.z),n=Math.round(30+Math.min(260,sink*90+hs*.6));
+        const yaw=Math.atan2(f.x,f.z),n=Math.round(24+Math.min(120,sink*60+hs*.4));
         for(const sd of [-1,1]){
           tps.emitter=new V3(plane.pos.x+r.x*track*sd,gy+.4,plane.pos.z+r.z*track*sd);tps.manualEmitCount=n;tps.start();
-          if(nSk<260){sk.thinInstanceAdd(BABYLON.Matrix.Compose(new V3(1,1,.6+Math.min(2,sink*.4)),BABYLON.Quaternion.RotationYawPitchRoll(yaw,0,0),new V3(plane.pos.x+r.x*track*sd,gy+.06,plane.pos.z+r.z*track*sd)));nSk++;}
+          if(nSk<180){sk.thinInstanceAdd(BABYLON.Matrix.Compose(new V3(1,1,.6+Math.min(2,sink*.4)),BABYLON.Quaternion.RotationYawPitchRoll(yaw,0,0),new V3(plane.pos.x+r.x*track*sd,gy+.06,plane.pos.z+r.z*track*sd)));nSk++;}
         }
-        setTimeout(()=>{try{tps.emitter=new V3(plane.pos.x-r.x*track,gy+.4,plane.pos.z-r.z*track);tps.manualEmitCount=n;}catch(e){}},60);
       };
     }catch(e){console.warn('tyresmoke',e);}
     try{
       const ct=mkT('ctT',64,(c,S)=>{const g=c.createRadialGradient(S/2,S/2,1,S/2,S/2,S/2);g.addColorStop(0,'rgba(255,255,255,.8)');g.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=g;c.fillRect(0,0,S,S);});
       const trails=[];
-      for(let i=0;i<4;i++){const ps=new BABYLON.ParticleSystem('contrail'+i,HQ?2500:900,scene);ps.particleTexture=ct;
+      for(let i=0;i<4;i++){const ps=new BABYLON.ParticleSystem('contrail'+i,HQ?420:220,scene);ps.particleTexture=ct;
         const em=new BABYLON.TransformNode('ctEm'+i,scene);em.parent=aircraftRoot;ps.emitter=em;
         ps.minEmitBox=ps.maxEmitBox=new V3(0,0,0);ps.color1=new BABYLON.Color4(1,1,1,.55);ps.color2=new BABYLON.Color4(.95,.97,1,.45);ps.colorDead=new BABYLON.Color4(1,1,1,0);
-        ps.minSize=1.5;ps.maxSize=2.5;ps.addSizeGradient(0,.6);ps.addSizeGradient(1,9);ps.minLifeTime=6;ps.maxLifeTime=10;ps.emitRate=0;
+        ps.minSize=1.5;ps.maxSize=2.5;ps.addSizeGradient(0,.6);ps.addSizeGradient(1,9);ps.minLifeTime=5;ps.maxLifeTime=8;ps.emitRate=0;
         ps.minEmitPower=0;ps.maxEmitPower=.3;ps.direction1=new V3(-.1,-.1,-.1);ps.direction2=new V3(.1,.1,.1);ps.blendMode=BABYLON.ParticleSystem.BLENDMODE_STANDARD;
-        ps.isLocal=false;ps.start();trails.push({ps,em});}
+        ps.isLocal=false;trails.push({ps,em});}
       const vort=[];
-      for(const sd of [-1,1]){const ps=new BABYLON.ParticleSystem('vortex'+sd,600,scene);ps.particleTexture=ct;const em=new BABYLON.TransformNode('vxEm'+sd,scene);em.parent=aircraftRoot;ps.emitter=em;
+      for(const sd of [-1,1]){const ps=new BABYLON.ParticleSystem('vortex'+sd,180,scene);ps.particleTexture=ct;const em=new BABYLON.TransformNode('vxEm'+sd,scene);em.parent=aircraftRoot;ps.emitter=em;
         ps.minEmitBox=ps.maxEmitBox=new V3(0,0,0);ps.color1=new BABYLON.Color4(1,1,1,.05);ps.color2=new BABYLON.Color4(1,1,1,.03);ps.addSizeGradient(0,.35);ps.addSizeGradient(1,1.1);ps.colorDead=new BABYLON.Color4(1,1,1,0);
-        ps.minSize=.12;ps.maxSize=.25;ps.minLifeTime=.5;ps.maxLifeTime=1.1;ps.emitRate=0;ps.minEmitPower=0;ps.maxEmitPower=.1;ps.start();vort.push({ps,em,sd});}
+        ps.minSize=.12;ps.maxSize=.25;ps.minLifeTime=.4;ps.maxLifeTime=.9;ps.emitRate=0;ps.minEmitPower=0;ps.maxEmitPower=.1;vort.push({ps,em,sd});}
       scene.onBeforeRenderObservable.add(()=>{
-       const D=window._DRESS[window._activeModelId];
+        const D=window._DRESS[window._activeModelId];
         const eng=(D&&D.engines)||[{x:5,y:-1.5,zR:-3},{x:-5,y:-1.5,zR:-3}];
         const altFt=plane.pos.y*3.28084,on=altFt>26000&&ENG.L.state==='RUNNING'&&!plane.crashed;
         const k=on?Math.min(1,(altFt-26000)/3000):0;
-        trails.forEach((t,i)=>{const e=eng[i];if(!e||e.prop){t.ps.emitRate=0;return;}t.em.position.set(e.x,e.y,e.zR-8);t.ps.emitRate=k*(HQ?240:90)*(.4+plane.throttle*.6);});
+        trails.forEach((t,i)=>{const e=eng[i];if(!e||e.prop||k<=0){t.ps.emitRate=0;if(t.ps.isStarted())t.ps.stop();return;}
+          t.em.position.set(e.x,e.y,e.zR-8);t.ps.emitRate=k*(HQ?55:30)*(.4+plane.throttle*.6);if(!t.ps.isStarted())t.ps.start();});
         const tip=D&&D.wing?D.wing[D.wing.length-1]:{s:16,y:0,zLE:-4,c:1.5};
         const g=Math.max(0,(plane.gLoad||plane.gForce||1)-1),aoa=Math.abs(plane.alpha||0);
         const hum=currentWeather.rain||currentWeather.name==='FOG'||currentWeather.name==='CLOUDY'?1:.4;
         const vk=(!plane.onGround&&plane.speed>45&&(aoa>.2||g>.8))?Math.min(1,(aoa-.16)*6+g*.5)*hum:0;
-        vort.forEach(v=>{v.em.position.set(v.sd*tip.s,tip.y,tip.zLE-tip.c);v.ps.emitRate=vk*120;});
+        vort.forEach(v=>{if(vk<=.02){v.ps.emitRate=0;if(v.ps.isStarted())v.ps.stop();return;}
+          v.em.position.set(v.sd*tip.s,tip.y,tip.zLE-tip.c);v.ps.emitRate=vk*55;if(!v.ps.isStarted())v.ps.start();});
       });
     }catch(e){console.warn('contrails',e);}
-       scene.onBeforeRenderObservable.add(()=>{
+    scene.onBeforeRenderObservable.add(()=>{
       const g = window._modelRoots ? window._modelRoots[window._activeModelId] : null;
       if(!g) return;
       const c = plane.onGround || Math.abs(plane.gearCompress||0) > .01 ? (plane.gearCompress||0) : 0;
       g.position.y = -c * .32;
     });
-    try{const dp=scene.postProcessRenderPipelineManager.supportedPipelines[0];
-      if(dp&&HQ){dp.samples=4;dp.fxaaEnabled=true;dp.imageProcessing.exposure=Math.max(dp.imageProcessing.exposure,1.12);
-        dp.bloomThreshold=.78;dp.bloomWeight=.32;dp.imageProcessing.colorCurves&&(dp.imageProcessing.colorCurves.globalSaturation=18);}}catch(e){}
-    try{if(HQ){terrainMat.specularIntensity=.1;terrainMat.environmentIntensity=.55;}}catch(e){}
     try{
       const dp=scene.postProcessRenderPipelineManager.supportedPipelines[0];
-      if(dp){dp.grainEnabled=false;dp.chromaticAberrationEnabled=false;dp.sharpenEnabled=true;dp.sharpen.edgeAmount=.55;dp.sharpen.colorAmount=1;
+      if(dp){dp.grainEnabled=false;dp.chromaticAberrationEnabled=false;dp.sharpenEnabled=true;dp.sharpen.edgeAmount=.35;dp.sharpen.colorAmount=1;
         dp.imageProcessing.vignetteWeight=.8;dp.bloomKernel=48;}
-      const nativeScale=1/Math.min(window.devicePixelRatio||1,2);
       const NAMES=['LOW','MEDIUM','HIGH','ULTRA'];
       let q=-1;
       const setQ=(n,quiet)=>{n=Math.max(0,Math.min(3,n));if(n===q)return;q=n;window._gq=n;
         try{localStorage.setItem('fs_gfx',String(n));}catch(e){}
-        engine.setHardwareScalingLevel(n===0?Math.max(nativeScale,1):nativeScale);
-        if(dp){dp.samples=[1,1,2,4][n];dp.fxaaEnabled=true;dp.bloomEnabled=n>=1;dp.bloomWeight=[0,.25,.32,.35][n];}
+        const dpr=window.devicePixelRatio||1;
+        const hiScale=1/Math.min(dpr,n>=3?1.5:1.15);
+        engine.setHardwareScalingLevel(n===0?1.25:(n===1?1.0:hiScale));
+        if(dp){dp.samples=[1,1,1,2][n];dp.fxaaEnabled=true;dp.sharpenEnabled=n>=1;dp.bloomEnabled=n>=1;dp.bloomWeight=[0,.24,.28,.34][n];}
         try{if(window._glow)window._glow.isEnabled=n>=1;}catch(e){}
-        try{const c=window._csm;if(c){sun.shadowEnabled=n>=1;c.numCascades=[2,2,3,4][n];c.filteringQuality=n>=3?BABYLON.ShadowGenerator.QUALITY_HIGH:BABYLON.ShadowGenerator.QUALITY_MEDIUM;}}catch(e){console.warn('q shadows',e);}
-        try{if(n>=2&&!window._vls&&window._mkGodrays)window._vls=window._mkGodrays();
-            else if(n<2&&window._vls){window._vls.dispose(camera);window._vls=null;}}catch(e){console.warn('q godrays',e);}
+        try{const c=window._csm;if(c){sun.shadowEnabled=n>=1;c.numCascades=[1,2,2,3][n];c.shadowMaxZ=[350,550,800,1150][n];c.filteringQuality=n>=3?BABYLON.ShadowGenerator.QUALITY_MEDIUM:BABYLON.ShadowGenerator.QUALITY_LOW;}}catch(e){console.warn('q shadows',e);}
+        try{if(n>=3&&!window._vls&&window._mkGodrays)window._vls=window._mkGodrays();
+            else if(n<3&&window._vls){window._vls.dispose(camera);window._vls=null;}}catch(e){console.warn('q godrays',e);}
         try{terrainMat.detailMap&&(terrainMat.detailMap.isEnabled=n>=1);}catch(e){}
         try{if(trunkMesh)trunkMesh.isVisible=n>=1;if(window._rtMesh)window._rtMesh.isVisible=n>=1;}catch(e){}
-        try{if(window._ssao&&window._ssao.isSupported){window._ssao.totalStrength=n<1?0:[0,.6,.9,1.1][n];const ppm=scene.postProcessRenderPipelineManager;const attached=!!(window._ssao.cameras&&window._ssao.cameras.indexOf(camera)!==-1);if(n>=1&&!window._ssaoOff&&!attached&&ppm.attachCamerasToRenderPipeline)ppm.attachCamerasToRenderPipeline('ssao',camera,true);else if(n<1&&attached&&ppm.detachCamerasFromRenderPipeline)ppm.detachCamerasFromRenderPipeline('ssao',camera);}}catch(e){}
+        try{
+          if(n>=3&&!window._ssaoOff&&!window._ssao&&window._mkSSAO)window._ssao=window._mkSSAO();
+          if(window._ssao&&window._ssao.isSupported){
+            window._ssao.totalStrength=n>=3?.85:0;
+            const ppm=scene.postProcessRenderPipelineManager;
+            const attached=!!(window._ssao.cameras&&window._ssao.cameras.indexOf(camera)!==-1);
+            if(n>=3&&!window._ssaoOff&&!attached&&ppm.attachCamerasToRenderPipeline)ppm.attachCamerasToRenderPipeline('ssao',camera,true);
+            else if(n<3&&attached&&ppm.detachCamerasFromRenderPipeline)ppm.detachCamerasFromRenderPipeline('ssao',camera);
+          }
+        }catch(e){}
         const chip=document.getElementById('gfxChip');if(chip)chip.textContent='GFX · '+NAMES[n];
         if(!quiet)showMsg('GRAPHICS: '+NAMES[n],1500);};
       window.setGraphicsQuality=n=>{auto=false;setQ(n);};
@@ -10489,12 +10791,12 @@ NJ.forEach(p=>{if(p.analog)ANALOG_SET.add(p.id);if(p.brand==='airbus')AIRBUS_SET
       window.addEventListener('keydown',e=>{if(e.code==='KeyO'&&!/INPUT|SELECT|TEXTAREA/.test((e.target||{}).tagName||'')){auto=false;setQ((q+1)%4);}});
       let saved=null;try{saved=localStorage.getItem('fs_gfx');}catch(e){}
       let auto=saved===null;
-      setQ(saved!==null?+saved:(isTouchDev?0:2),true);
+      setQ(saved!==null?+saved:(isTouchDev?0:1),true);
       let acc=0,fr=0,low=0,high=0;
-      scene.onAfterRenderObservable.add(()=>{acc+=engine.getDeltaTime();fr++;if(acc<2000)return;
+      scene.onAfterRenderObservable.add(()=>{acc+=engine.getDeltaTime();fr++;if(acc<1600)return;
         const fps=fr*1000/acc;acc=0;fr=0;if(!auto)return;
-        if(fps<32){low++;high=0;if(low>=2&&q>0){setQ(q-1);low=0;}}
-        else if(fps>58){high++;low=0;if(high>=6&&q<2){setQ(q+1);high=0;}}else{low=0;high=0;}});
+        if(fps<42){low++;high=0;if(low>=2&&q>0){setQ(q-1,true);low=0;}}
+        else if(fps>57){high++;low=0;if(high>=6&&q<2){setQ(q+1,true);high=0;}}else{low=0;high=0;}});
     }catch(e){console.warn('quality',e);}
     try{
       const S=256,dt=new BABYLON.DynamicTexture('terrDetail',{width:S,height:S},scene,true),c=dt.getContext(),id=c.createImageData(S,S);
@@ -10507,7 +10809,7 @@ NJ.forEach(p=>{if(p.analog)ANALOG_SET.add(p.id);if(p.brand==='airbus')AIRBUS_SET
         const dx=H[y*S+((x+1)%S)]-H[y*S+((x-1+S)%S)],dy=H[((y+1)%S)*S+x]-H[((y-1+S)%S)*S+x];
         id.data[o]=(.5+(h-.5)*.55)*255;id.data[o+1]=(.5-dy*2.2)*255;id.data[o+2]=128;id.data[o+3]=(.5-dx*2.2)*255;}
       c.putImageData(id,0,0);dt.update(false);dt.wrapU=dt.wrapV=BABYLON.Texture.WRAP_ADDRESSMODE;
-      dt.uScale=dt.vScale=CFG.terrainExtent/40;dt.anisotropicFilteringLevel=16;
+      dt.uScale=dt.vScale=CFG.terrainExtent/40;dt.anisotropicFilteringLevel=4;
       terrainMat.detailMap.texture=dt;terrainMat.detailMap.isEnabled=(window._gq||0)>=1;
       terrainMat.detailMap.diffuseBlendLevel=.55;terrainMat.detailMap.normalBlendLevel=.35;terrainMat.detailMap.roughnessBlendLevel=0;
     }catch(e){console.warn('detail',e);}
@@ -13876,8 +14178,8 @@ void main(){
 
   function init(S){
     const scene=S.scene,BABYLON=S.BABYLON,plane=S.plane,CFG=window.CFG;
-    const SIZE=2800,HALF=SIZE/2,RING=900,GRID=97,STEP=SIZE/(GRID-1),ZOOM=17;
-    const TEXN=navigator.maxTouchPoints>0?1024:2048;
+    const SIZE=2400,HALF=SIZE/2,RING=1050,GRID=65,STEP=SIZE/(GRID-1),ZOOM=16;
+    const TEXN=1024;
     const O=()=>CFG.origin;
     const mPerLon=()=>111320*Math.cos(O().lat*Math.PI/180);
     const w2ll=(x,z)=>({lat:O().lat-z/111132,lon:O().lon+x/mPerLon()});
@@ -13900,7 +14202,7 @@ void main(){
         img.src=`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
       });
       cache.set(k,p);
-      if(cache.size>300)cache.delete(cache.keys().next().value);
+      if(cache.size>180)cache.delete(cache.keys().next().value);
       return p;
     }
 
@@ -13922,7 +14224,7 @@ void main(){
     mat.zOffset=-3;mat.zOffsetUnits=-3;
     const tex=new BABYLON.DynamicTexture('hdGroundT',{width:TEXN,height:TEXN},scene,true);
     tex.wrapU=tex.wrapV=BABYLON.Texture.CLAMP_ADDRESSMODE;
-    tex.anisotropicFilteringLevel=16;
+    tex.anisotropicFilteringLevel=4;
     mat.albedoTexture=tex;
     mesh.material=mat;mesh.isPickable=false;mesh.alwaysSelectAsActiveMesh=true;mesh.setEnabled(false);
 
@@ -13970,7 +14272,11 @@ void main(){
       }finally{building=false;}
     }
 
+    const isTouch=(('ontouchstart' in window)||navigator.maxTouchPoints>0)&&Math.min(screen.width,screen.height)<900;
+    let _hdTick=0;
     scene.registerBeforeRender(()=>{
+      if((++_hdTick)%15!==0)return;
+      if((window._gq||0)<2||isTouch){mesh.setEnabled(false);return;}
       const source=window.__imagerySource?window.__imagerySource():'esri';
       if(source!=='esri'){mesh.setEnabled(false);return;}
       if(building||plane.hold||plane.crashed)return;
