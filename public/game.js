@@ -2575,6 +2575,9 @@ const plane={
   gearPos:1.0,gearTarget:1.0,flapVisual:0,spoilerVisual:0,
   bellyLanding:false,inWater:false
 };
+window.scene = scene;
+window.CFG = CFG;
+window.plane = plane; 
 window.__gamepadThrottle=(rate,dt)=>{
   if(ENG.L.state==='RUNNING'||ENG.R.state==='RUNNING')
     plane.throttle=BABYLON.Scalar.Clamp(plane.throttle+rate*dt*.8,0,1);
