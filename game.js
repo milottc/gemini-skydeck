@@ -2,7 +2,7 @@ try{const _gp=navigator.getGamepads;navigator.getGamepads=function(){try{return 
 const errEl=document.getElementById('errorBanner'),bootEl=document.getElementById('bootBadge'),loadEl=document.getElementById('loadStatus');
 const camBadge=document.getElementById('camBadge');
 function fatal(m){console.error('[FATAL]',m);errEl.style.display='block';errEl.textContent='⚠ '+m;}
-function status(m){bootEl.textContent='BOOT · '+m;}
+function status(m){bootEl.textContent='BOOT · '+m;bootEl.classList.toggle('done',m==='ready'||m==='flying');}
 window.addEventListener('error',e=>fatal(e.message+' @'+e.lineno));
 window.addEventListener('unhandledrejection',e=>fatal('Promise: '+((e.reason&&e.reason.message)||e.reason)));
 function loadJS(u){return new Promise(r=>{const t=document.createElement('script');t.src=u;t.onload=()=>r(true);t.onerror=()=>r(false);document.head.appendChild(t);});}
@@ -646,22 +646,26 @@ async function offlineDownload(center,radiusM,onP){
   return {total:seen.size,cached:seen.size-todo.length,stored:ok,failed:fail,libs:libsNew};
 }
 (function(){
-  const b=document.createElement('button');
-  b.textContent='⬇ OFFLINE MAPS';
-  b.style.cssText='position:fixed;bottom:132px;left:14px;z-index:400;background:#08111f;color:#9cf;border:1px solid #1e4a7a;border-radius:8px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;';
-  b.onclick=async()=>{
+  let busy=false;
+  const downloadCurrent=async()=>{
+    if(busy){showMsg('Offline maps download already in progress…',2000);return;}
+    busy=true;
+    const tag=document.getElementById('tmOfflineTag');
     const c={x:plane.pos.x,z:plane.pos.z},R=CFG.terrainExtent/2+2000;
     const plan=OFFMAP.plan(c,R);
     const fresh=plan.filter(t=>!OFF.has(t.key)).length;
-    const osmNote=imagerySource==='osm'?' OpenStreetMap tiles are not included.':'';
-    if(!confirm(`Save ${plan.length} map tiles (about ${OFFMAP.estimateMB(plan)} MB, ${fresh} not yet stored) around your position for offline use?${osmNote}`))return;
-    b.disabled=true;
-    const res=await offlineDownload(c,R,(d,n,f)=>{b.textContent=`⬇ ${d}/${n}${f?' ('+f+' failed)':''}`;});
-    b.disabled=false;b.textContent='⬇ OFFLINE MAPS';
-    showMsg(`Offline maps: ${res.stored} saved, ${res.cached} already stored${res.failed?', '+res.failed+' failed (no connection?)':''}`,4500);
+    showMsg(`Caching ${fresh}/${plan.length} map tiles (~${OFFMAP.estimateMB(plan)} MB)…`,3000);
+    if(tag)tag.textContent=`0/${fresh}`;
+    try{
+      const res=await offlineDownload(c,R,(d,n,f)=>{if(tag)tag.textContent=`${d}/${n}`;});
+      if(tag)tag.textContent=`${OFF.count()} cached`;
+      showMsg(`Offline maps: ${res.stored} saved, ${res.cached} already stored${res.failed?', '+res.failed+' failed':''}`,4500);
+    }catch(e){
+      if(tag)tag.textContent='ERR';
+      showMsg('Offline map cache failed',3000);
+    }finally{busy=false;}
   };
-  document.body.appendChild(b);
-  window.OfflineMaps={plan:OFFMAP.plan.bind(OFFMAP),download:offlineDownload,count:()=>OFF.count()};
+  window.OfflineMaps={plan:OFFMAP.plan.bind(OFFMAP),download:offlineDownload,downloadCurrent,count:()=>OFF.count()};
 })();
 async function ensureHeightTiles(cx,cz){
   const E=CFG.terrainExtent,nw=worldToLL(cx-E/2,cz-E/2),se=worldToLL(cx+E/2,cz+E/2);
@@ -6524,11 +6528,11 @@ function ilsCalc(){
 /* Purple checkpoints: single source of truth is SET.purple (default off). Any toggle path (\ key, cockpit button, settings) saves it. */
 const ILSP={get on(){return !!SET.purple;},set on(v){SET.purple=!!v;saveSet();}};
 
-/* ===== SETTINGS PANEL (gear button bottom-left) ===== */
+/* ===== SETTINGS PANEL (opened via Tools menu) ===== */
 (function settingsPanel(){
-  const css='#setBtn{position:fixed;left:14px;bottom:14px;z-index:70;font:600 12px system-ui,sans-serif;letter-spacing:.06em;padding:7px 11px;border-radius:9px;border:1px solid rgba(120,220,255,.45);background:rgba(10,20,34,.8);color:#bfefff;cursor:pointer}'+
-  '#setPanel{position:fixed;left:14px;bottom:56px;z-index:71;width:290px;max-height:70vh;overflow:auto;display:none;padding:14px;border-radius:12px;background:rgba(8,14,24,.97);border:1px solid rgba(120,220,255,.35);color:#dff6ff;font:500 13px/1.35 system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.6)}'+
-  '#setPanel.show{display:block}'+
+  const css=
+  '#setPanel{position:fixed;left:12px;top:56px;z-index:9997;width:290px;max-height:76vh;overflow:auto;display:none;padding:14px;border-radius:12px;background:rgba(8,14,24,.96);backdrop-filter:blur(12px);border:1px solid rgba(120,220,255,.4);color:#dff6ff;font:500 13px/1.35 system-ui,sans-serif;box-shadow:0 16px 40px rgba(0,0,0,.7)}'+
+  '#setPanel.show{display:block;animation:faultIn .18s ease-out}'+
   '#setPanel h3{margin:14px 0 6px;font:700 11px system-ui,sans-serif;letter-spacing:.12em;color:#7fc7ff;text-transform:uppercase}'+
   '#setPanel h3:first-child{margin-top:4px}'+
   '#setPanel .sr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0}'+
@@ -6538,9 +6542,8 @@ const ILSP={get on(){return !!SET.purple;},set on(v){SET.purple=!!v;saveSet();}}
   '#setPanel .seg{display:flex;gap:6px}#setPanel .seg button{flex:1}'+
   '#setPanel .x{float:right;background:none;border:none;color:#8aa4bb;font-size:16px;cursor:pointer}';
   const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
-  const btn=document.createElement('button');btn.id='setBtn';btn.textContent='⚙ SETTINGS';
   const pnl=document.createElement('div');pnl.id='setPanel';
-  document.body.appendChild(btn);document.body.appendChild(pnl);
+  document.body.appendChild(pnl);
   const onOff=v=>`<button class="sb${v?' on':''}" data-t>${v?'ON':'OFF'}</button>`;
   function render(){
     const simple=SET.rudder==='simple';
@@ -6559,7 +6562,12 @@ const ILSP={get on(){return !!SET.purple;},set on(v){SET.purple=!!v;saveSet();}}
       <div class="sr"><span>Invert mouse pitch</span>${onOff(mouseInvert).replace('data-t','data-m')}</div>
       <div class="sr"><span>Restore defaults</span><button class="sb" data-reset>RESET</button></div>`;
   }
-  btn.addEventListener('click',()=>{pnl.classList.toggle('show');if(pnl.classList.contains('show'))render();});
+  window._toggleSettings=()=>{
+    const open=!pnl.classList.contains('show');
+    if(window._closeAllHudDrawers)window._closeAllHudDrawers('setPanel');
+    pnl.classList.toggle('show',open);
+    if(open)render();
+  };
   pnl.addEventListener('click',e=>{
     const t=e.target.closest('button');if(!t)return;
     if(t.hasAttribute('data-x')){pnl.classList.remove('show');return;}
@@ -6632,7 +6640,7 @@ const MAPV={mpp:70,follow:true,cx:0,cz:0,tap:true,hdgUp:false};
       <button id="fpGenBtn" class="on">BUILD ROUTE</button>
     </div>
     <div class="row" style="margin:4px 0">
-      <select id="apSel"></select><button id="apAdd">+ WPT</button><button id="fpSaveBtn">SAVE</button><button id="fpLoadBtn">LOAD</button><button id="fpShareBtn">SHARE ROOM</button><button id="fpClr">CLEAR</button><button id="fpRtn">HOME</button>
+      <select id="apSel"></select><button id="apAdd">+ WPT</button><button id="fpSaveBtn">SAVE</button><button id="fpLoadBtn">LOAD</button><button id="fpShareBtn">SHARE SERVER</button><button id="fpClr">CLEAR</button><button id="fpRtn">HOME</button>
     </div>
   </div>
   <div class="fpSum" id="fpSum"></div>
@@ -6640,10 +6648,17 @@ const MAPV={mpp:70,follow:true,cx:0,cz:0,tap:true,hdgUp:false};
   <div id="wpList"></div>
   <div class="lbl" style="margin-top:4px">APPR flies ILS to your departure runway · LNAV+VNAV follows the flight plan automatically.</div>`;
   document.body.appendChild(fms);
-  const fb=document.createElement('button');fb.id='fmsBtn';fb.textContent='🗺 FMS / FLIGHT PLAN (J)';document.body.appendChild(fb);
+  const fb=document.createElement('button');fb.id='fmsBtn';fb.type='button';fb.textContent='🗺 Nav';fb.title='Flight Plan & Map (J)';
+  const _hb=document.getElementById('hudBar'),_tw=document.getElementById('toolsWrap');
+  if(_hb&&_tw)_hb.insertBefore(fb,_tw);else if(_hb)_hb.appendChild(fb);else document.body.appendChild(fb);
   const $=id=>document.getElementById(id);
-  const toggle=()=>{fms.classList.toggle('show');if(fms.classList.contains('show'))renderFMS();};
-  fb.addEventListener('click',toggle);$('fmsX').addEventListener('click',toggle);
+  const toggle=()=>{
+    const open=!fms.classList.contains('show');
+    if(open&&window._closeAllHudDrawers)window._closeAllHudDrawers('fms');
+    fms.classList.toggle('show',open);fb.classList.toggle('on',open);
+    if(open)renderFMS();
+  };
+  fb.addEventListener('click',toggle);$('fmsX').addEventListener('click',()=>{fms.classList.remove('show');fb.classList.remove('on');});
   window.addEventListener('keydown',e=>{if(e.code==='KeyJ'&&!e.shiftKey&&!/INPUT|SELECT|TEXTAREA/.test((e.target||{}).tagName||''))toggle();});
   fms.addEventListener('keydown',e=>e.stopPropagation());fms.addEventListener('keyup',e=>e.stopPropagation());
   const sel=$('apSel'),destSel=$('fpDestSel');
@@ -7417,7 +7432,10 @@ const atc=(function(){
   const st={phase:'ramp',voice:true,sq:String(2000+((Math.random()*5000)|0)),cs:'Babylon 737 Heavy',freq:'',ready:false};
   const box=document.createElement('div');box.id='atc';
   box.innerHTML='<div class="fh"><span>ATC · CLEARANCES</span><span><button id="atcV">🔊</button> <button id="atcX">✕</button></span></div><div id="atcFq" style="font:700 10.5px monospace;color:#7dd3fc;margin:-2px 0 6px;letter-spacing:.5px"></div><div id="atcLog"></div><div class="bt" id="atcB"></div>';
-  document.body.appendChild(box);const ab=document.createElement('button');ab.id='atcBtn';ab.textContent='📻 ATC (K)';document.body.appendChild(ab);
+  document.body.appendChild(box);
+  const ab=document.createElement('button');ab.id='atcBtn';ab.type='button';ab.textContent='📻 ATC';ab.title='ATC Clearances (K)';
+  const _hbA=document.getElementById('hudBar'),_twA=document.getElementById('toolsWrap');
+  if(_hbA&&_twA)_hbA.insertBefore(ab,_twA);else if(_hbA)_hbA.appendChild(ab);else document.body.appendChild(ab);
   const log=document.getElementById('atcLog');
   const say=(who,txt)=>{const d=document.createElement('div');d.className=who==='p'?'p':'a';d.textContent=(who==='p'?'▶ '+st.cs+': ':'◀ ')+txt;log.appendChild(d);log.scrollTop=log.scrollHeight;
     if(who==='a'&&st.voice&&window.speechSynthesis&&!(_sfxCur&&!_sfxCur.paused&&!_sfxCur.ended)){try{const u=new SpeechSynthesisUtterance(txt.replace(/Babylon/,'Babylon'));u.rate=1.1;speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}};
@@ -7475,8 +7493,12 @@ const atc=(function(){
     return st.cs+', traffic, '+clk+' o\'clock, '+(best.d/1852).toFixed(1)+' miles, '+alt+'.';};
   const btns=[['atis','ATIS',acts.atis],['ifr','Clearance delivery',acts.ifr],['push','Pushback / startup',acts.push],['taxi','Taxi',acts.taxi],['lu','Line up & wait',acts.lineup],['tk','Takeoff',acts.tkoff],['v','Vectors / approach',acts.vec],['l','Landing',acts.land],['g','Go around',acts.go],['t','Traffic',acts.tfc],['e','MAYDAY',acts.emg]];
   const bb=document.getElementById('atcB');btns.forEach(b=>{const e=document.createElement('button');e.textContent=b[1];e.addEventListener('click',b[2]);bb.appendChild(e);});
-  const tog=()=>{box.classList.toggle('show');};
-  ab.addEventListener('click',tog);document.getElementById('atcX').addEventListener('click',tog);
+  const tog=()=>{
+    const open=!box.classList.contains('show');
+    if(open&&window._closeAllHudDrawers)window._closeAllHudDrawers('atc');
+    box.classList.toggle('show',open);ab.classList.toggle('on',open);
+  };
+  ab.addEventListener('click',tog);document.getElementById('atcX').addEventListener('click',()=>{box.classList.remove('show');ab.classList.remove('on');});
   document.getElementById('atcV').addEventListener('click',e=>{st.voice=!st.voice;e.target.textContent=st.voice?'🔊':'🔇';if(!st.voice&&window.speechSynthesis)speechSynthesis.cancel();});
   window.addEventListener('keydown',e=>{if(e.code==='KeyK'&&!/INPUT|SELECT/.test((e.target||{}).tagName||''))tog();});
   box.addEventListener('keydown',e=>e.stopPropagation());
@@ -8743,7 +8765,14 @@ if(homeClrFpBtn)homeClrFpBtn.addEventListener('click',()=>{
 });
 wxSel.addEventListener('change',()=>{ currentWeather=WEATHER[wxSel.value]||WEATHER.clear; applyEnvironment(); applyWeatherVisuals(); updateChips(); });
 
-document.getElementById('faultToggleBtn').addEventListener('click',()=>{document.getElementById('faultButtons').classList.toggle('show');});
+const _ftb=document.getElementById('faultToggleBtn');
+window._toggleFaultMenu=()=>{
+  const fb=document.getElementById('faultButtons');if(!fb)return;
+  const open=!fb.classList.contains('show');
+  if(open&&window._closeAllHudDrawers)window._closeAllHudDrawers('faultButtons');
+  fb.classList.toggle('show',open);
+};
+if(_ftb)_ftb.addEventListener('click',window._toggleFaultMenu);
 document.querySelectorAll('.faultBtn[data-inject]').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const f=btn.dataset.inject;
@@ -8805,7 +8834,8 @@ startBtn.addEventListener('click',async()=>{
     lat=parseFloat(customLat.value);
     lon=parseFloat(customLon.value);
     if(!isFinite(lat)||!isFinite(lon)){
-      alert('Please enter valid latitude and longitude.');
+      loadEl.textContent='Enter valid latitude & longitude';
+      showMsg('Please enter valid latitude and longitude.',3000);
       startBtn.disabled=false;overlay.classList.remove('hidden');return;
     }
     code=(customCode.value||'').trim().toUpperCase()||'CUSTOM';
@@ -8837,6 +8867,7 @@ startBtn.addEventListener('click',async()=>{
   createRunway(currentLocation.code);
   resetAircraft(currentLocation.lat,currentLocation.lon,currentLocation.elev);
   terrainCenter={x:0,z:0};plane.hold=true;
+  try{if(window.SkyMP&&window.SkyMP.pushStateNow)window.SkyMP.pushStateNow();}catch(e){}
 
   // --- RESOLUTION SETTINGS ---
   const RES_SETTINGS = {
@@ -8891,7 +8922,7 @@ startBtn.addEventListener('click',async()=>{
   createRunway(currentLocation.code);
   resetAircraft(currentLocation.lat,currentLocation.lon,currentLocation.elev);
   try{if(destSelect&&destSelect.value&&LOCS[destSelect.value])buildHomeRoute(false);}catch(e){}
-  try{if(window.SkyMP&&window.SkyMP.pushTelemetryNow)window.SkyMP.pushTelemetryNow();}catch(e){}
+  try{if(window.SkyMP&&window.SkyMP.pushStateNow)window.SkyMP.pushStateNow();}catch(e){}
   plane.hold=false;loadEl.textContent='Ready';status('flying');
   lsProgress(1,'Ready');
   lsHide();
@@ -8903,6 +8934,7 @@ respawnBtn.addEventListener('click',respawn);
 // Always keep start button enabled after respawn too
 function respawn(){
   _respawnBase();
+  try{if(window.SkyMP&&window.SkyMP.pushStateNow)window.SkyMP.pushStateNow();}catch(e){}
   try{startBtn.disabled=false;}catch(e){}
 }
   /* ================================================================== */
@@ -10782,12 +10814,10 @@ NJ.forEach(p=>{if(p.analog)ANALOG_SET.add(p.id);if(p.brand==='airbus')AIRBUS_SET
             else if(n<3&&attached&&ppm.detachCamerasFromRenderPipeline)ppm.detachCamerasFromRenderPipeline('ssao',camera);
           }
         }catch(e){}
-        const chip=document.getElementById('gfxChip');if(chip)chip.textContent='GFX · '+NAMES[n];
+        const gfxTag=document.getElementById('tmGfxTag');if(gfxTag)gfxTag.textContent=NAMES[n]+' · O';
         if(!quiet)showMsg('GRAPHICS: '+NAMES[n],1500);};
       window.setGraphicsQuality=n=>{auto=false;setQ(n);};
-      const chip=document.createElement('button');chip.id='gfxChip';
-      chip.style.cssText='position:fixed;right:14px;bottom:62px;z-index:60;font:600 11px system-ui,sans-serif;letter-spacing:.08em;padding:7px 11px;border-radius:9px;border:1px solid rgba(120,220,255,.45);background:rgba(10,20,34,.78);color:#bfefff;cursor:pointer';
-      chip.title='Graphics quality (O)';chip.onclick=()=>{auto=false;setQ((q+1)%4);};document.body.appendChild(chip);
+      window.cycleGraphicsQuality=()=>{auto=false;setQ((q+1)%4);};
       window.addEventListener('keydown',e=>{if(e.code==='KeyO'&&!/INPUT|SELECT|TEXTAREA/.test((e.target||{}).tagName||'')){auto=false;setQ((q+1)%4);}});
       let saved=null;try{saved=localStorage.getItem('fs_gfx');}catch(e){}
       let auto=saved===null;
@@ -11113,9 +11143,10 @@ void main(){
 /* ===== LIVE WEATHER RADAR & CONVECTIVE STORM CELLS ===== */
 (function initWeatherRadar(){
   const wxrBtn=document.createElement('button');
-  wxrBtn.id='wxrBtn';
-  wxrBtn.innerHTML='<span class="wxrDot" id="wxrDot"></span><span id="wxrBtnTxt">📡 WXR · CLR</span>';
-  document.body.appendChild(wxrBtn);
+  wxrBtn.id='wxrBtn';wxrBtn.type='button';wxrBtn.title='Live Weather Radar';
+  wxrBtn.innerHTML='<span class="wxrDot" id="wxrDot"></span><span id="wxrBtnTxt">📡 WXR</span>';
+  const _hbW=document.getElementById('hudBar'),_twW=document.getElementById('toolsWrap');
+  if(_hbW&&_twW)_hbW.insertBefore(wxrBtn,_twW);else if(_hbW)_hbW.appendChild(wxrBtn);else document.body.appendChild(wxrBtn);
 
   const wxrPanel=document.createElement('div');
   wxrPanel.id='wxrPanel';
@@ -11600,21 +11631,21 @@ void main(){
     const adv=scanForwardSector();
     const inside=window._wxrInside;
     if(inside&&inside.lvl>=3){
-      wxrBtn.className='severe';
-      wxrBtnTxt.textContent='📡 WXR · IN STORM!';
+      wxrBtn.classList.add('severe');wxrBtn.classList.remove('warn');
+      wxrBtnTxt.textContent='📡 WXR · STORM!';
       wxrAdv.className='severe';
       wxrAdv.textContent='IN SEVERE CELL · TURN '+(adv.avoidOffset>=0?'R':'L')+' TO HDG '+String(adv.avoidHdg).padStart(3,'0')+'°';
     }else if(adv.hazard){
       const c=adv.hazard.cell;
       const sev=c.intensity>=3;
-      wxrBtn.className=sev?'severe':'warn';
+      wxrBtn.classList.toggle('severe',sev);wxrBtn.classList.toggle('warn',!sev);
       wxrBtnTxt.textContent='📡 WXR · '+(sev?'TRW ':'CELL ')+Math.round(adv.hazard.edgeDist)+'nm';
       wxrAdv.className=sev?'severe':'warn';
       const side=adv.avoidOffset>=0?'RIGHT +':'LEFT ';
       wxrAdv.textContent=(sev?'STORM':'PRECIP')+' '+Math.round(adv.hazard.edgeDist)+'nm AHEAD (FL'+c.topFl+') · DEVIATE '+side+adv.avoidOffset+'° (HDG '+String(adv.avoidHdg).padStart(3,'0')+'°)';
     }else{
-      wxrBtn.className='';
-      wxrBtnTxt.textContent='📡 WXR · CLR';
+      wxrBtn.classList.remove('severe','warn');
+      wxrBtnTxt.textContent='📡 WXR';
       wxrAdv.className='';
       wxrAdv.textContent='SECTOR CLEAR · NO CONVECTIVE CELLS AHEAD ('+cells.length+' ACTIVE)';
     }
@@ -11648,8 +11679,13 @@ void main(){
   });
 
   // Toolbar actions
-  wxrBtn.addEventListener('click',()=>{wxrPanel.classList.toggle('show');if(wxrPanel.classList.contains('show'))renderRadar();});
-  document.getElementById('wxrCloseBtn').addEventListener('click',()=>wxrPanel.classList.remove('show'));
+  wxrBtn.addEventListener('click',()=>{
+    const open=!wxrPanel.classList.contains('show');
+    if(open&&window._closeAllHudDrawers)window._closeAllHudDrawers('wxrPanel');
+    wxrPanel.classList.toggle('show',open);wxrBtn.classList.toggle('on',open);
+    if(open)renderRadar();
+  });
+  document.getElementById('wxrCloseBtn').addEventListener('click',()=>{wxrPanel.classList.remove('show');wxrBtn.classList.remove('on');});
 
   [[10,'wxrR10'],[20,'wxrR20'],[40,'wxrR40'],[80,'wxrR80'],[160,'wxrR160']].forEach(([rn,id])=>{
     document.getElementById(id).addEventListener('click',()=>{
@@ -11733,12 +11769,11 @@ void main(){
   };
 })();
 
-/* ===== REAL-TIME WEBSOCKET MULTIPLAYER ===== */
+/* ===== REAL-TIME WEBSOCKET MULTIPLAYER (SINGLE GLOBAL SERVER) ===== */
 (function initMultiplayer(){
+  const GLOBAL_ROOM='GLOBAL';
   const mpLabels=document.getElementById('mpLabels');
   const homeCallInp=document.getElementById('mpHomeCallsign');
-  const homeRoomInp=document.getElementById('mpHomeRoom');
-  const homeAutoChk=document.getElementById('mpAutoChk');
   const homeStatus=document.getElementById('mpHomeStatus');
 
   let savedCall='';
@@ -11747,45 +11782,34 @@ void main(){
     savedCall='SKY'+Math.floor(100+Math.random()*900);
     try{localStorage.setItem('skydeck_mp_callsign',savedCall);}catch(e){}
   }
-  let savedRoom='PUBLIC';
-  try{savedRoom=localStorage.getItem('skydeck_mp_room')||'PUBLIC';}catch(e){}
-  let autoEnabled=true;
-  try{autoEnabled=localStorage.getItem('skydeck_mp_auto')!=='0';}catch(e){}
 
   const cleanCall=s=>(String(s||'').toUpperCase().replace(/[^A-Z0-9 _-]/g,'').trim().slice(0,14)||savedCall);
-  const cleanRoom=s=>(String(s||'').toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,16)||'PUBLIC');
-
   savedCall=cleanCall(savedCall);
-  savedRoom=cleanRoom(savedRoom);
-
   if(homeCallInp)homeCallInp.value=savedCall;
-  if(homeRoomInp)homeRoomInp.value=savedRoom;
-  if(homeAutoChk)homeAutoChk.checked=autoEnabled;
 
-  // Create in-flight MP button and drawer panel
+  // Dock MP button into top command bar
   const mpBtn=document.createElement('button');
-  mpBtn.id='mpBtn';
-  mpBtn.innerHTML='<span class="mpDot wait" id="mpDot"></span><span id="mpBtnTxt">🌐 MP · 0</span>';
-  document.body.appendChild(mpBtn);
+  mpBtn.id='mpBtn';mpBtn.type='button';mpBtn.title='Global Multiplayer Pilots & Radio';
+  mpBtn.innerHTML='<span class="mpDot wait" id="mpDot"></span><span id="mpBtnTxt">🌐 Pilots · 0</span>';
+  const _hbM=document.getElementById('hudBar'),_twM=document.getElementById('toolsWrap');
+  if(_hbM&&_twM)_hbM.insertBefore(mpBtn,_twM);else if(_hbM)_hbM.appendChild(mpBtn);else document.body.appendChild(mpBtn);
 
   const mpPanel=document.createElement('div');
   mpPanel.id='mpPanel';
   mpPanel.innerHTML=`
-    <div class="fh"><span>🌐 LIVE MULTIPLAYER</span><button id="mpCloseBtn">✕</button></div>
+    <div class="fh"><span>🌐 GLOBAL SERVER</span><button id="mpCloseBtn" type="button">✕</button></div>
     <div class="row">
-      <input id="mpCallsignInp" type="text" maxlength="14" placeholder="CALLSIGN" style="width:105px">
-      <input id="mpRoomInp" type="text" maxlength="16" placeholder="ROOM" style="width:96px">
-      <button id="mpJoinBtn">JOIN</button>
-      <button id="mpDiscBtn">OFFLINE</button>
+      <input id="mpCallsignInp" type="text" maxlength="14" placeholder="CALLSIGN" style="flex:1;min-width:110px">
+      <button id="mpJoinBtn" type="button">UPDATE</button>
     </div>
-    <div id="mpConnSt" style="font-size:10.5px;color:#38bdf8;font-family:monospace;margin-bottom:6px">Connecting…</div>
-    <div style="font-size:10px;color:#22d3ee;letter-spacing:1.2px;font-weight:700;margin-top:4px">PILOTS IN ROOM</div>
-    <div id="mpList"><div style="color:#64748b;font-size:11px;padding:4px">No other pilots in room yet.</div></div>
-    <div style="font-size:10px;color:#22d3ee;letter-spacing:1.2px;font-weight:700;margin-top:6px">RADIO / FLIGHT PLANS</div>
+    <div id="mpConnSt" style="font-size:10.5px;color:#38bdf8;font-family:monospace;margin-bottom:6px">Connecting to Global Server…</div>
+    <div style="font-size:10px;color:#22d3ee;letter-spacing:1.2px;font-weight:700;margin-top:4px">PILOTS ONLINE</div>
+    <div id="mpList"><div style="color:#64748b;font-size:11px;padding:4px">No other pilots online yet.</div></div>
+    <div style="font-size:10px;color:#22d3ee;letter-spacing:1.2px;font-weight:700;margin-top:6px">GLOBAL RADIO / FLIGHT PLANS</div>
     <div id="mpChatLog"></div>
     <div class="row" style="margin-bottom:2px">
       <input id="mpChatInp" type="text" maxlength="140" placeholder="Radio message (Enter to send)…" style="flex:1;min-width:0">
-      <button id="mpChatSend">SEND</button>
+      <button id="mpChatSend" type="button">SEND</button>
     </div>`;
   document.body.appendChild(mpPanel);
 
@@ -11795,9 +11819,7 @@ void main(){
   const mpDot=document.getElementById('mpDot');
   const mpBtnTxt=document.getElementById('mpBtnTxt');
   const mpCallInp=document.getElementById('mpCallsignInp');
-  const mpRoomInp=document.getElementById('mpRoomInp');
   const mpJoinBtn=document.getElementById('mpJoinBtn');
-  const mpDiscBtn=document.getElementById('mpDiscBtn');
   const mpConnSt=document.getElementById('mpConnSt');
   const mpListEl=document.getElementById('mpList');
   const mpChatLog=document.getElementById('mpChatLog');
@@ -11805,12 +11827,16 @@ void main(){
   const mpChatSend=document.getElementById('mpChatSend');
 
   mpCallInp.value=savedCall;
-  mpRoomInp.value=savedRoom;
 
-  mpBtn.addEventListener('click',()=>{mpPanel.classList.toggle('show');renderPilotList();});
-  document.getElementById('mpCloseBtn').addEventListener('click',()=>mpPanel.classList.remove('show'));
+  mpBtn.addEventListener('click',()=>{
+    const open=!mpPanel.classList.contains('show');
+    if(open&&window._closeAllHudDrawers)window._closeAllHudDrawers('mpPanel');
+    mpPanel.classList.toggle('show',open);mpBtn.classList.toggle('on',open);
+    if(open)renderPilotList();
+  });
+  document.getElementById('mpCloseBtn').addEventListener('click',()=>{mpPanel.classList.remove('show');mpBtn.classList.remove('on');});
 
-  let ws=null,myId=null,connected=false,manualOff=!autoEnabled,reconTimer=null,reconDelay=1500;
+  let ws=null,myId=null,connected=false,reconTimer=null,reconDelay=1500;
   const remotes=new Map(); // id -> remote record
   window._mpRemoteList=[];
 
@@ -11831,13 +11857,14 @@ void main(){
       mpDot.classList.toggle('on',state==='on');
       mpDot.classList.toggle('wait',state==='wait');
     }
-    if(mpBtnTxt)mpBtnTxt.textContent='🌐 MP · '+remotes.size;
+    if(mpBtnTxt)mpBtnTxt.textContent='🌐 Pilots · '+remotes.size;
     if(mpConnSt)mpConnSt.textContent=msg;
     if(homeStatus){
-      homeStatus.textContent=msg;
+      homeStatus.textContent=state==='on'
+        ?('● Global Server · Online ('+(remotes.size+1)+' pilot'+(remotes.size===0?'':'s')+')')
+        :('● Global Server · '+msg);
       homeStatus.style.color=state==='on'?'#4ade80':state==='wait'?'#fbbf24':'#94a3b8';
     }
-    if(mpDiscBtn)mpDiscBtn.textContent=manualOff?'CONNECT':'OFFLINE';
   }
 
   function computeHeadingDeg(){
@@ -11851,26 +11878,28 @@ void main(){
 
   function buildTelemetryPayload(){
     const ll=worldToLL(plane.pos.x,plane.pos.z);
+    const q=plane.quat||BABYLON.Quaternion.Identity();
     return {
       type:'state',
       callsign:savedCall,
       modelId:window._activeModelId||'737',
       liveryIdx:typeof curLiv==='number'?curLiv:0,
       airport:(currentLocation&&currentLocation.code)||'LSZH',
-      lat:ll.lat,
-      lon:ll.lon,
-      alt:plane.pos.y,
-      qx:plane.quat.x,
-      qy:plane.quat.y,
-      qz:plane.quat.z,
-      qw:plane.quat.w,
-      spd:plane.speed||0,
+      lat:Number.isFinite(ll.lat)?ll.lat:CFG.origin.lat,
+      lon:Number.isFinite(ll.lon)?ll.lon:CFG.origin.lon,
+      alt:Number.isFinite(plane.pos.y)?plane.pos.y:500,
+      qx:Number.isFinite(q.x)?q.x:0,
+      qy:Number.isFinite(q.y)?q.y:1,
+      qz:Number.isFinite(q.z)?q.z:0,
+      qw:Number.isFinite(q.w)?q.w:0,
+      spd:Number.isFinite(plane.speed)?plane.speed:0,
       hdg:computeHeadingDeg(),
-      vs:(plane.vel&&plane.vel.y)||0,
+      vs:(plane.vel&&Number.isFinite(plane.vel.y))?plane.vel.y:0,
       gearPos:plane.gearPos!=null?plane.gearPos:1,
       flaps:plane.flaps||0,
       throttle:plane.throttle||0,
-      crashed:!!plane.crashed
+      crashed:!!plane.crashed,
+      flying:!!window._userStarted
     };
   }
 
@@ -11881,15 +11910,16 @@ void main(){
       tpl=exteriorRoot;
       wasEnabled=tpl?tpl.isEnabled():false;
     }else if(window._ensureModel){
-      tpl=window._ensureModel(mid);
+      try{tpl=window._ensureModel(mid);}catch(e){tpl=null;}
       wasEnabled=tpl?tpl.isEnabled():false;
     }
     if(!tpl)tpl=exteriorRoot;
     if(!tpl)return null;
 
     let clone=null;
+    const clonePrefix='mp_ac_'+Math.random().toString(36).slice(2,8);
     try{
-      clone=tpl.clone('mp_ac_'+Math.random().toString(36).slice(2,8),null,false);
+      clone=tpl.clone(clonePrefix,null,false);
     }catch(e){
       console.warn('MP clone fail',mid,e);
       return null;
@@ -11900,18 +11930,24 @@ void main(){
     }
     if(!clone)return null;
     clone.parent=null;
-    clone.setEnabled(true);
-    clone.scaling.set(1,1,1);
+    clone.position.set(0,0,0);
+    if(tpl.scaling)clone.scaling.copyFrom(tpl.scaling);
+    else clone.scaling.set(1,1,1);
     clone.rotationQuaternion=BABYLON.Quaternion.Identity();
+    clone.setEnabled(false);
 
     const srcMeshes=tpl.getChildMeshes(false);
+    const srcByName=new Map();
+    for(const s of srcMeshes)if(s&&s.name)srcByName.set(s.name,s);
     const dstMeshes=clone.getChildMeshes(false);
     const spins=[],fans=[],gearNodes=[];
 
     for(let i=0;i<dstMeshes.length;i++){
-      const m=dstMeshes[i],sr=srcMeshes[i];
+      const m=dstMeshes[i];
+      const baseName=m.name&&m.name.startsWith(clonePrefix+'.')?m.name.slice(clonePrefix.length+1):m.name;
+      const sr=srcByName.get(baseName)||srcByName.get(m.name)||srcMeshes[i];
       m.isPickable=false;
-      if(/fireEm|smokeEm|wonderSpark|_brand|llg|llcone|^emb/i.test(m.name)){
+      if(/fireEm|smokeEm|wonderSpark|_brand|llg|llcone|^emb/i.test(baseName||m.name)){
         m.setEnabled(false);continue;
       }
       if(sr&&sr.thinInstanceCount>0&&sr._thinInstanceDataStorage&&sr._thinInstanceDataStorage.matrixData){
@@ -11921,14 +11957,15 @@ void main(){
         }catch(e){}
       }
       m.setEnabled(true);
-      if(/_prop\d*$|^c172_prop$|^cirrus_prop$|_spin$/i.test(m.name)&&!/c172_spin|cirrus_spin|wonderful_spin/i.test(m.name)){
+      if(/_prop\d*$|^c172_prop$|^cirrus_prop$|_spin$/i.test(baseName||m.name)&&!/c172_spin|cirrus_spin|wonderful_spin/i.test(baseName||m.name)){
         spins.push(m);
       }
     }
     clone.getChildTransformNodes(false).forEach(tn=>{
+      const baseName=tn.name&&tn.name.startsWith(clonePrefix+'.')?tn.name.slice(clonePrefix.length+1):tn.name;
       try{tn.setEnabled(true);}catch(e){}
-      if(/_fanRot\d*$|^fanSpin/i.test(tn.name))fans.push(tn);
-      if(/(_gear$|^nosePv$|^mPv)/i.test(tn.name))gearNodes.push(tn);
+      if(/_fanRot\d*$|^fanSpin/i.test(baseName||tn.name))fans.push(tn);
+      if(/(_gear$|^nosePv$|^mPv)/i.test(baseName||tn.name))gearNodes.push(tn);
     });
 
     const isFixed=mid==='cessna'||mid==='cirrus'||mid==='dc3'||mid==='wonderful';
@@ -11959,9 +11996,12 @@ void main(){
       rec.pos.set(w.x,rec.alt,w.z);
       rec.targetPos.set(w.x,rec.alt,w.z);
       rec.quat.set(rec.qx,rec.qy,rec.qz,rec.qw);
+      if(rec.quat.lengthSquared()<1e-6)rec.quat=BABYLON.Quaternion.Identity();
+      else rec.quat.normalize();
       rec.targetQuat.copyFrom(rec.quat);
       rec.mesh.root.position.copyFrom(rec.pos);
       rec.mesh.root.rotationQuaternion.copyFrom(rec.quat);
+      rec.mesh.root.setEnabled(!!rec.flying);
     }
   }
 
@@ -11975,16 +12015,20 @@ void main(){
         modelId:p.modelId||'737',
         liveryIdx:p.liveryIdx||0,
         airport:p.airport||'',
-        lat:Number(p.lat)||CFG.origin.lat,
-        lon:Number(p.lon)||CFG.origin.lon,
-        alt:Number(p.alt)||1000,
-        qx:Number(p.qx)||0,qy:Number(p.qy)||1,qz:Number(p.qz)||0,qw:Number(p.qw)||0,
+        lat:Number.isFinite(Number(p.lat))?Number(p.lat):CFG.origin.lat,
+        lon:Number.isFinite(Number(p.lon))?Number(p.lon):CFG.origin.lon,
+        alt:Number.isFinite(Number(p.alt))?Number(p.alt):1000,
+        qx:Number.isFinite(Number(p.qx))?Number(p.qx):0,
+        qy:Number.isFinite(Number(p.qy))?Number(p.qy):1,
+        qz:Number.isFinite(Number(p.qz))?Number(p.qz):0,
+        qw:Number.isFinite(Number(p.qw))?Number(p.qw):0,
         spd:Number(p.spd)||0,
         hdg:Number(p.hdg)||0,
         vs:Number(p.vs)||0,
         gearPos:p.gearPos!=null?Number(p.gearPos):1,
         throttle:Number(p.throttle)||0.5,
         crashed:!!p.crashed,
+        flying:!!p.flying,
         pos:new BABYLON.Vector3(),
         targetPos:new BABYLON.Vector3(),
         quat:BABYLON.Quaternion.Identity(),
@@ -11996,10 +12040,13 @@ void main(){
       rec.pos.set(w.x,rec.alt,w.z);
       rec.targetPos.copyFrom(rec.pos);
       rec.quat.set(rec.qx,rec.qy,rec.qz,rec.qw);
+      if(rec.quat.lengthSquared()<1e-6)rec.quat=BABYLON.Quaternion.Identity();
+      else rec.quat.normalize();
       rec.targetQuat.copyFrom(rec.quat);
       remotes.set(p.id,rec);
       ensureRemoteMesh(rec);
     }else{
+      const wasFlying=rec.flying;
       const modelChanged=p.modelId&&p.modelId!==rec.modelId;
       if(p.callsign)rec.callsign=p.callsign;
       if(p.modelId)rec.modelId=p.modelId;
@@ -12017,9 +12064,16 @@ void main(){
       if(Number.isFinite(p.gearPos))rec.gearPos=p.gearPos;
       if(Number.isFinite(p.throttle))rec.throttle=p.throttle;
       rec.crashed=!!p.crashed;
+      if(p.flying!==undefined)rec.flying=!!p.flying;
       const w=llToWorld(rec.lat,rec.lon);
       rec.targetPos.set(w.x,rec.alt,w.z);
       rec.targetQuat.set(rec.qx,rec.qy,rec.qz,rec.qw);
+      if(rec.targetQuat.lengthSquared()<1e-6)rec.targetQuat=BABYLON.Quaternion.Identity();
+      else rec.targetQuat.normalize();
+      if(!wasFlying&&rec.flying){
+        rec.pos.copyFrom(rec.targetPos);
+        rec.quat.copyFrom(rec.targetQuat);
+      }
       if(modelChanged)ensureRemoteMesh(rec);
     }
     syncRemoteExport();
@@ -12034,6 +12088,7 @@ void main(){
   function syncRemoteExport(){
     const list=[];
     for(const rec of remotes.values()){
+      if(!rec.flying)continue;
       const w=llToWorld(rec.lat,rec.lon);
       const distNm=Math.hypot(w.x-plane.pos.x,w.z-plane.pos.z)/1852;
       list.push({
@@ -12051,8 +12106,8 @@ void main(){
       });
     }
     window._mpRemoteList=list;
-    if(mpBtnTxt)mpBtnTxt.textContent='🌐 MP · '+remotes.size;
-    if(connected)setStatus('on','LIVE · ROOM '+savedRoom+' · '+(remotes.size+1)+' PILOT'+(remotes.size===0?'':'S'));
+    if(mpBtnTxt)mpBtnTxt.textContent='🌐 Pilots · '+remotes.size;
+    if(connected)setStatus('on','GLOBAL SERVER · '+(remotes.size+1)+' PILOT'+(remotes.size===0?'':'S'));
     if(mpPanel.classList.contains('show'))renderPilotList();
   }
 
@@ -12063,13 +12118,20 @@ void main(){
     const rightX=Math.cos(hRad),rightZ=Math.sin(hRad);
     const dM=Math.hypot(rec.targetPos.x-plane.pos.x,rec.targetPos.z-plane.pos.z);
     if(dM>45000){
-      CFG.origin.lat=rec.lat;
-      CFG.origin.lon=rec.lon;
+      const ap=rec.airport&&LOCS[rec.airport]?LOCS[rec.airport]:null;
+      CFG.origin.lat=ap?ap.lat:rec.lat;
+      CFG.origin.lon=ap?ap.lon:rec.lon;
       M_PER_DEG_LAT=111132;
-      M_PER_DEG_LON=111320*Math.cos(rec.lat*Math.PI/180);
-      currentLocation={lat:rec.lat,lon:rec.lon,elev:0,code:rec.airport||'CUSTOM',start:'cruise'};
+      M_PER_DEG_LON=111320*Math.cos(CFG.origin.lat*Math.PI/180);
+      currentLocation={lat:CFG.origin.lat,lon:CFG.origin.lon,elev:ap?(ap.elev||0):0,code:rec.airport||'CUSTOM',start:'cruise'};
       try{createRunway(rec.airport&&RUNWAYS[rec.airport]?rec.airport:'CUSTOM');}catch(e){}
-      try{rebuildTerrainAsync(0,0);}catch(e){}
+      for(const r of remotes.values()){
+        const rw=llToWorld(r.lat,r.lon);
+        r.pos.set(rw.x,r.alt,rw.z);
+        r.targetPos.copyFrom(r.pos);
+      }
+      if(typeof terrainCenter!=='undefined')terrainCenter={x:-999999,z:-999999};
+      try{await withTimeout(rebuildTerrainAsync(0,0),6000,'warp');}catch(e){}
     }
     const w=llToWorld(rec.lat,rec.lon);
     const wx=w.x-dirX*1400+rightX*180;
@@ -12084,7 +12146,7 @@ void main(){
     plane.quat=BABYLON.Quaternion.RotationAxis(BABYLON.Vector3.Up(),Math.PI-hRad);
     plane.gearDown=false;plane.gearPos=0;plane.gearTarget=0;
     plane.throttle=Math.max(0.55,rec.throttle||0.65);
-    pushTelemetryNow();
+    pushStateNow();
     showMsg('WARPED NEAR '+rec.callsign+' ('+(rec.airport||'ENROUTE')+')',2800);
   }
 
@@ -12096,36 +12158,43 @@ void main(){
     MAPV.cz=w.z;
     const ctrBtn=document.getElementById('mCtr');
     if(ctrBtn)ctrBtn.classList.remove('on');
-    const fmsEl=document.getElementById('fms');
-    if(fmsEl){fmsEl.classList.add('show');if(window.renderFMS)window.renderFMS();}
+    const fmsEl=document.getElementById('fms'),fmsBtnEl=document.getElementById('fmsBtn');
+    if(window._closeAllHudDrawers)window._closeAllHudDrawers('fms');
+    if(fmsEl){fmsEl.classList.add('show');if(fmsBtnEl)fmsBtnEl.classList.add('on');if(window.renderFMS)window.renderFMS();}
   }
 
   function renderPilotList(){
     if(!mpListEl)return;
     if(!remotes.size){
-      mpListEl.innerHTML='<div style="color:#64748b;font-size:11px;padding:4px">No other pilots in room '+escHtml(savedRoom)+'.</div>';
+      mpListEl.innerHTML='<div style="color:#64748b;font-size:11px;padding:4px">No other pilots online yet.</div>';
       return;
     }
     mpListEl.innerHTML='';
-    for(const rec of remotes.values()){
+    const sorted=[...remotes.values()].map(rec=>{
       const w=llToWorld(rec.lat,rec.lon);
       const distNm=Math.hypot(w.x-plane.pos.x,w.z-plane.pos.z)/1852;
+      return {rec,distNm};
+    }).sort((a,b)=>(b.rec.flying-a.rec.flying)||(a.distNm-b.distNm));
+    for(const {rec,distNm} of sorted){
       const altFt=Math.round((rec.alt||0)*3.28084);
       const kt=Math.round((rec.spd||0)*1.94384);
       const hdg=String(Math.round(((rec.hdg||0)%360+360)%360)).padStart(3,'0');
       const row=document.createElement('div');
       row.className='mpPilot';
+      const sub=rec.flying
+        ?`${escHtml(rec.airport||'---')} · ${altFt.toLocaleString()}ft · ${kt}kt · ${hdg}° · ${distNm.toFixed(1)}nm${rec.crashed?' · CRASHED':''}`
+        :`${escHtml(rec.airport||'---')} · IN MENU`;
       row.innerHTML=`
         <div style="min-width:0;flex:1">
           <div class="mpPilotName">${escHtml(rec.callsign)} · ${escHtml((rec.modelId||'737').toUpperCase())}</div>
-          <div class="mpPilotSub">${escHtml(rec.airport||'---')} · ${altFt.toLocaleString()}ft · ${kt}kt · ${hdg}° · ${distNm.toFixed(1)}nm</div>
+          <div class="mpPilotSub">${sub}</div>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0">
-          <button data-act="warp">WARP</button>
-          <button data-act="map">MAP</button>
+          ${rec.flying?'<button data-act="warp" type="button">WARP</button><button data-act="map" type="button">MAP</button>':''}
         </div>`;
-      row.querySelector('[data-act="warp"]').addEventListener('click',()=>warpNearPlayer(rec));
-      row.querySelector('[data-act="map"]').addEventListener('click',()=>centerMapOnPlayer(rec));
+      const wb=row.querySelector('[data-act="warp"]'),mb=row.querySelector('[data-act="map"]');
+      if(wb)wb.addEventListener('click',()=>warpNearPlayer(rec));
+      if(mb)mb.addEventListener('click',()=>centerMapOnPlayer(rec));
       mpListEl.appendChild(row);
     }
   }
@@ -12134,7 +12203,7 @@ void main(){
     if(!ws||ws.readyState!==WebSocket.OPEN)return;
     ws.send(JSON.stringify({
       type:'join',
-      room:savedRoom,
+      room:GLOBAL_ROOM,
       callsign:savedCall,
       modelId:window._activeModelId||'737',
       liveryIdx:typeof curLiv==='number'?curLiv:0,
@@ -12143,19 +12212,17 @@ void main(){
     }));
   }
 
-  function pushTelemetryNow(){
+  function pushStateNow(){
     if(!ws||ws.readyState!==WebSocket.OPEN||!connected||!myId)return;
-    if(!window._userStarted)return;
     try{ws.send(JSON.stringify(buildTelemetryPayload()));}catch(e){}
   }
 
   function connect(){
-    if(manualOff){setStatus('off','OFFLINE · MULTIPLAYER PAUSED');return;}
     if(ws&&(ws.readyState===WebSocket.OPEN||ws.readyState===WebSocket.CONNECTING))return;
     if(reconTimer){clearTimeout(reconTimer);reconTimer=null;}
     const proto=location.protocol==='https:'?'wss://':'ws://';
     const url=proto+location.host;
-    setStatus('wait','Connecting to '+savedRoom+'…');
+    setStatus('wait','Connecting…');
     try{ws=new WebSocket(url);}catch(e){scheduleReconnect();return;}
 
     ws.addEventListener('open',()=>{
@@ -12171,15 +12238,15 @@ void main(){
 
       if(msg.type==='welcome'){
         myId=msg.playerId;
-        savedRoom=msg.room||savedRoom;
         savedCall=msg.callsign||savedCall;
         clearAllRemotes();
         (msg.players||[]).forEach(upsertRemote);
-        setStatus('on','LIVE · ROOM '+savedRoom+' · '+(remotes.size+1)+' PILOT'+(remotes.size===0?'':'S'));
-        addChatLine('<span style="color:#38bdf8">● Connected to room <b>'+escHtml(savedRoom)+'</b> as <b>'+escHtml(savedCall)+'</b></span>');
+        setStatus('on','GLOBAL SERVER · '+(remotes.size+1)+' PILOT'+(remotes.size===0?'':'S'));
+        addChatLine('<span style="color:#38bdf8">● Connected to <b>GLOBAL SERVER</b> as <b>'+escHtml(savedCall)+'</b></span>');
       }else if(msg.type==='player:joined'&&msg.player){
+        const known=remotes.has(msg.player.id);
         upsertRemote(msg.player);
-        addChatLine('<span style="color:#4ade80">↗ '+escHtml(msg.player.callsign)+' joined ('+escHtml((msg.player.modelId||'737').toUpperCase())+')</span>');
+        if(!known)addChatLine('<span style="color:#4ade80">↗ '+escHtml(msg.player.callsign)+' joined ('+escHtml((msg.player.modelId||'737').toUpperCase())+')</span>');
       }else if(msg.type==='player:state'&&msg.player){
         upsertRemote(msg.player);
       }else if(msg.type==='player:left'){
@@ -12200,6 +12267,7 @@ void main(){
         wrap.innerHTML='<span style="color:#f0abfc">🧭 <b>'+escHtml(msg.callsign)+'</b> shared route '+escHtml(lbl)+' </span>';
         const btn=document.createElement('button');
         btn.textContent='LOAD';
+        btn.type='button';
         btn.style.cssText='padding:2px 7px;font-size:10px;border-radius:4px;border:1px solid #a855f7;background:#3b0764;color:#f3e8ff;cursor:pointer';
         btn.addEventListener('click',()=>{
           FP.wps=msg.wps.map(w=>({name:w.name,lat:w.lat,lon:w.lon,alt:w.alt}));
@@ -12217,76 +12285,38 @@ void main(){
     ws.addEventListener('close',()=>{
       connected=false;ws=null;myId=null;
       clearAllRemotes();
-      if(!manualOff)scheduleReconnect();
-      else setStatus('off','OFFLINE · MULTIPLAYER PAUSED');
+      scheduleReconnect();
     });
 
     ws.addEventListener('error',()=>{try{ws&&ws.close();}catch(e){}});
   }
 
   function scheduleReconnect(){
-    if(manualOff||reconTimer)return;
+    if(reconTimer)return;
     setStatus('wait','Reconnecting in '+Math.round(reconDelay/1000)+'s…');
     reconTimer=setTimeout(()=>{reconTimer=null;reconDelay=Math.min(10000,reconDelay*1.5);connect();},reconDelay);
   }
 
-  function disconnect(){
-    manualOff=true;
-    if(reconTimer){clearTimeout(reconTimer);reconTimer=null;}
-    if(ws){try{ws.close();}catch(e){}ws=null;}
-    connected=false;myId=null;
-    clearAllRemotes();
-    setStatus('off','OFFLINE · MULTIPLAYER PAUSED');
-  }
-
-  function applySettings(newCall,newRoom){
+  function applyCallsign(newCall){
     savedCall=cleanCall(newCall);
-    savedRoom=cleanRoom(newRoom);
-    try{
-      localStorage.setItem('skydeck_mp_callsign',savedCall);
-      localStorage.setItem('skydeck_mp_room',savedRoom);
-    }catch(e){}
+    try{localStorage.setItem('skydeck_mp_callsign',savedCall);}catch(e){}
     if(homeCallInp)homeCallInp.value=savedCall;
-    if(homeRoomInp)homeRoomInp.value=savedRoom;
     mpCallInp.value=savedCall;
-    mpRoomInp.value=savedRoom;
-    if(!manualOff){
-      if(ws&&ws.readyState===WebSocket.OPEN)sendJoin();
-      else connect();
-    }
+    if(ws&&ws.readyState===WebSocket.OPEN)sendJoin();
+    else connect();
   }
 
-  if(homeCallInp)homeCallInp.addEventListener('change',()=>applySettings(homeCallInp.value,homeRoomInp?homeRoomInp.value:savedRoom));
-  if(homeRoomInp)homeRoomInp.addEventListener('change',()=>applySettings(homeCallInp?homeCallInp.value:savedCall,homeRoomInp.value));
-  if(homeAutoChk)homeAutoChk.addEventListener('change',()=>{
-    autoEnabled=!!homeAutoChk.checked;
-    try{localStorage.setItem('skydeck_mp_auto',autoEnabled?'1':'0');}catch(e){}
-    if(autoEnabled){manualOff=false;connect();}else disconnect();
-  });
-
-  mpJoinBtn.addEventListener('click',()=>{
-    manualOff=false;autoEnabled=true;
-    if(homeAutoChk)homeAutoChk.checked=true;
-    try{localStorage.setItem('skydeck_mp_auto','1');}catch(e){}
-    applySettings(mpCallInp.value,mpRoomInp.value);
-  });
-  mpDiscBtn.addEventListener('click',()=>{
-    if(manualOff){
-      manualOff=false;autoEnabled=true;
-      if(homeAutoChk)homeAutoChk.checked=true;
-      try{localStorage.setItem('skydeck_mp_auto','1');}catch(e){}
-      connect();
-    }else{
-      if(homeAutoChk)homeAutoChk.checked=false;
-      try{localStorage.setItem('skydeck_mp_auto','0');}catch(e){}
-      disconnect();
-    }
-  });
+  if(homeCallInp){
+    homeCallInp.addEventListener('change',()=>applyCallsign(homeCallInp.value));
+    homeCallInp.addEventListener('blur',()=>applyCallsign(homeCallInp.value));
+  }
+  mpJoinBtn.addEventListener('click',()=>applyCallsign(mpCallInp.value));
+  mpCallInp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();applyCallsign(mpCallInp.value);}});
 
   function sendChat(){
     const text=mpChatInp.value.trim();
     if(!text)return;
-    if(!ws||ws.readyState!==WebSocket.OPEN){showMsg('NOT CONNECTED TO MULTIPLAYER',1800);return;}
+    if(!ws||ws.readyState!==WebSocket.OPEN){showMsg('RECONNECTING TO GLOBAL SERVER…',1800);connect();return;}
     ws.send(JSON.stringify({type:'chat',text}));
     mpChatInp.value='';
   }
@@ -12294,31 +12324,45 @@ void main(){
   mpChatInp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();sendChat();}});
 
   function shareFlightPlan(fp){
-    if(!ws||ws.readyState!==WebSocket.OPEN){showMsg('CONNECT MULTIPLAYER TO SHARE',1800);return;}
+    if(!ws||ws.readyState!==WebSocket.OPEN){showMsg('RECONNECTING TO GLOBAL SERVER…',1800);connect();return;}
     if(!fp||!fp.wps||!fp.wps.length)return;
     ws.send(JSON.stringify({type:'fp_share',dep:fp.dep||'',dest:fp.dest||'',wps:fp.wps}));
-    showMsg('ROUTE SHARED TO ROOM '+savedRoom,2200);
+    showMsg('ROUTE SHARED TO GLOBAL SERVER',2200);
   }
 
-  // Broadcast telemetry at ~15 Hz while flying; heartbeat ping every 20s
-  setInterval(()=>{if(window._userStarted)pushTelemetryNow();},66);
+  // Broadcast telemetry at ~15 Hz while flying; 5s state keepalive in menu; 20s heartbeat ping
+  setInterval(()=>{if(window._userStarted)pushStateNow();},66);
+  setInterval(()=>{if(!window._userStarted)pushStateNow();},5000);
   setInterval(()=>{if(ws&&ws.readyState===WebSocket.OPEN)try{ws.send(JSON.stringify({type:'ping'}));}catch(e){}},20000);
 
-  // Smoothly interpolate remote 3D aircraft & project HUD nameplates
+  // Smoothly interpolate remote 3D aircraft & project HUD nameplates in CSS pixels
   scene.registerBeforeRender(()=>{
     if(!remotes.size)return;
     const dt=Math.min(0.1,(engine.getDeltaTime()||16)/1000);
     const alpha=Math.min(1,dt*10);
     const qAlpha=Math.min(1,dt*12);
     const showOverlay=overlay&&!overlay.classList.contains('hidden');
-    const rw=engine.getRenderWidth(),rh=engine.getRenderHeight();
+    const rw=engine.getRenderWidth()||1,rh=engine.getRenderHeight()||1;
+    const cw=canvas.clientWidth||rw,ch=canvas.clientHeight||rh;
+    const sx=cw/rw,sy=ch/rh;
     const vp=camera&&camera.viewport?camera.viewport.toGlobal(rw,rh):null;
     const txMat=scene.getTransformMatrix();
     const idMat=BABYLON.Matrix.Identity();
 
     for(const rec of remotes.values()){
-      BABYLON.Vector3.LerpToRef(rec.pos,rec.targetPos,alpha,rec.pos);
-      BABYLON.Quaternion.SlerpToRef(rec.quat,rec.targetQuat,qAlpha,rec.quat);
+      if(!rec.flying){
+        if(rec.mesh&&rec.mesh.root&&rec.mesh.root.isEnabled())rec.mesh.root.setEnabled(false);
+        if(rec.labelEl)rec.labelEl.style.display='none';
+        continue;
+      }
+      if(rec.mesh&&rec.mesh.root&&!rec.mesh.root.isEnabled())rec.mesh.root.setEnabled(true);
+      if(BABYLON.Vector3.DistanceSquared(rec.pos,rec.targetPos)>25000000){
+        rec.pos.copyFrom(rec.targetPos);
+        rec.quat.copyFrom(rec.targetQuat);
+      }else{
+        BABYLON.Vector3.LerpToRef(rec.pos,rec.targetPos,alpha,rec.pos);
+        BABYLON.Quaternion.SlerpToRef(rec.quat,rec.targetQuat,qAlpha,rec.quat);
+      }
       if(rec.mesh&&rec.mesh.root){
         rec.mesh.root.position.copyFrom(rec.pos);
         rec.mesh.root.rotationQuaternion.copyFrom(rec.quat);
@@ -12347,9 +12391,9 @@ void main(){
             rec.labelEl.style.display='none';
           }else{
             const altFt=Math.round((rec.alt||0)*3.28084);
-            rec.labelEl.textContent=rec.callsign+' · '+(rec.modelId||'737').toUpperCase()+' · '+altFt+'ft · '+distNm.toFixed(1)+'nm';
-            rec.labelEl.style.left=Math.round(p3.x)+'px';
-            rec.labelEl.style.top=Math.round(p3.y)+'px';
+            rec.labelEl.textContent=rec.callsign+' · '+(rec.modelId||'737').toUpperCase()+' · '+altFt+'ft · '+distNm.toFixed(1)+'nm'+(rec.crashed?' [CRASHED]':'');
+            rec.labelEl.style.left=Math.round(p3.x*sx)+'px';
+            rec.labelEl.style.top=Math.round(p3.y*sy)+'px';
             rec.labelEl.style.display='block';
           }
         }
@@ -12359,12 +12403,12 @@ void main(){
 
   window.SkyMP={
     shareFlightPlan,
-    pushTelemetryNow,
-    reconnect:()=>{manualOff=false;connect();},
-    disconnect
+    pushTelemetryNow:pushStateNow,
+    pushStateNow,
+    reconnect:connect
   };
 
-  if(!manualOff)connect();
+  connect();
 })();
 
 /* ===== SCOPE BRIDGE: feature blocks outside main() read these through window (they were silently disabled before:
@@ -12567,40 +12611,41 @@ void main(){
   function loadLog(){try{return JSON.parse(localStorage.getItem(KEY)||'[]');}catch(e){return[];}}
   function saveLog(l){try{localStorage.setItem(KEY,JSON.stringify(l));}catch(e){}}
 
-  // Build logbook UI
-  const btn=document.createElement('button');
-  btn.id='logbookBtn';
-  btn.textContent='📋 Logbook';
-  btn.style.cssText='position:fixed;bottom:56px;right:14px;z-index:400;background:#0b1a2e;color:#9cf;border:1px solid #1e4a7a;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.05em;';
-  document.body.appendChild(btn);
-
+  // Build logbook panel (opened via Tools menu)
   const panel=document.createElement('div');
   panel.id='logbookPanel';
-  panel.style.cssText='position:fixed;bottom:90px;right:14px;z-index:401;background:#08111f;border:1px solid #1e4a7a;border-radius:12px;padding:14px 16px;min-width:270px;max-height:340px;overflow-y:auto;display:none;font-family:monospace;font-size:12px;color:#acd;box-shadow:0 8px 32px rgba(0,0,0,.6);';
+  panel.style.cssText='position:fixed;top:56px;left:12px;z-index:9997;background:rgba(8,14,24,.96);backdrop-filter:blur(12px);border:1px solid rgba(56,189,248,.4);border-radius:12px;padding:14px 16px;width:min(310px,92vw);max-height:70vh;overflow-y:auto;display:none;font-family:monospace;font-size:12px;color:#acd;box-shadow:0 16px 40px rgba(0,0,0,.7);';
   document.body.appendChild(panel);
 
   function renderLog(){
     const log=loadLog();
-    if(log.length===0){panel.innerHTML='<div style="color:#556;text-align:center;padding:18px 0">No landings yet</div>';return;}
-    let html='<div style="font-size:11px;color:#5af;font-weight:700;margin-bottom:8px">LANDING LOGBOOK ('+log.length+')</div>';
-    html+='<table style="width:100%;border-collapse:collapse">';
-    html+='<tr style="color:#445;font-size:10px"><th style="text-align:left">TIME</th><th>FPM</th><th>GRADE</th><th>AIRPORT</th></tr>';
+    let pbVal=9999;try{pbVal=parseInt(localStorage.getItem('sim_butterPB'))||9999;}catch(e){}
+    const pbTxt=pbVal<9999?`🧈 Personal Best: ${pbVal} fpm`:'🧈 Personal Best: —';
+    const hdr=`<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#5af;font-weight:700;margin-bottom:6px"><span>LANDING LOGBOOK (${log.length})</span><button id="closeLogBtn" type="button" style="background:none;border:none;color:#8ba3c0;font-size:15px;cursor:pointer">✕</button></div><div style="font-size:11px;color:#fbbf24;margin-bottom:8px">${pbTxt}</div>`;
+    if(log.length===0){
+      panel.innerHTML=hdr+'<div style="color:#64748b;text-align:center;padding:18px 0">No landings yet</div>';
+      const xb=document.getElementById('closeLogBtn');if(xb)xb.onclick=()=>{panel.style.display='none';};
+      return;
+    }
+    let html=hdr+'<table style="width:100%;border-collapse:collapse">';
+    html+='<tr style="color:#64748b;font-size:10px"><th style="text-align:left">TIME</th><th>FPM</th><th>GRADE</th><th>AIRPORT</th></tr>';
     for(let i=log.length-1;i>=0;i--){
       const e=log[i],gr=grade(e.fpm);
-      html+=`<tr style="border-top:1px solid #111d30"><td style="padding:3px 0;color:#667;font-size:10px">${e.time}</td><td style="text-align:center;color:#adf">${e.fpm}</td><td style="text-align:center;color:${gr.c};font-weight:700">${gr.g}</td><td style="text-align:center;color:#556;font-size:10px">${e.icao||'???'}</td></tr>`;
+      html+=`<tr style="border-top:1px solid #111d30"><td style="padding:3px 0;color:#64748b;font-size:10px">${e.time}</td><td style="text-align:center;color:#adf">${e.fpm}</td><td style="text-align:center;color:${gr.c};font-weight:700">${gr.g}</td><td style="text-align:center;color:#94a3b8;font-size:10px">${e.icao||'???'}</td></tr>`;
     }
     html+='</table>';
-    html+='<div style="margin-top:10px;text-align:right"><button id="clearLogBtn" style="background:#1a0000;color:#f66;border:1px solid #400;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">Clear</button></div>';
+    html+='<div style="margin-top:10px;text-align:right"><button id="clearLogBtn" type="button" style="background:#1a0000;color:#f66;border:1px solid #400;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer">Clear</button></div>';
     panel.innerHTML=html;
+    const xb=document.getElementById('closeLogBtn');if(xb)xb.onclick=()=>{panel.style.display='none';};
     const cb=document.getElementById('clearLogBtn');
     if(cb)cb.onclick=()=>{saveLog([]);renderLog();};
   }
-  btn.onclick=()=>{
+  window._toggleLogbook=()=>{
     const vis=panel.style.display==='none';
+    if(vis&&window._closeAllHudDrawers)window._closeAllHudDrawers('logbookPanel');
     panel.style.display=vis?'block':'none';
     if(vis)renderLog();
   };
-  document.addEventListener('click',e=>{if(!panel.contains(e.target)&&e.target!==btn)panel.style.display='none';},{capture:true,passive:true});
 
   // Hook touchdown
   const prevTD=window._onTouchdown;
@@ -13056,14 +13101,12 @@ void main(){
   function getPB(){try{return parseInt(localStorage.getItem(PB_KEY))||9999;}catch(e){return 9999;}}
   function setPB(v){try{localStorage.setItem(PB_KEY,v);}catch(e){}}
 
-  // PB display badge
-  const badge=document.createElement('div');
-  badge.id='butterBadge';
-  const pb=getPB();
-  badge.style.cssText='position:fixed;bottom:56px;left:14px;z-index:400;background:#08111f;border:1px solid #1e4a7a;border-radius:8px;padding:5px 11px;font-family:monospace;font-size:11px;color:#9cf;font-weight:700;cursor:default;opacity:0.85;';
-  badge.title='Your personal best landing rate';
-  badge.textContent='🧈 PB: '+(pb<9999?pb+' fpm':'—');
-  document.body.appendChild(badge);
+  // Sync PB tag in Tools menu
+  const syncPbTag=val=>{
+    const tag=document.getElementById('tmPbTag');
+    if(tag)tag.textContent=val<9999?val+' fpm':'';
+  };
+  syncPbTag(getPB());
 
   const _prevTD=window._onTouchdown;
   window._onTouchdown=(sink,hs,noGear,water)=>{
@@ -13074,7 +13117,7 @@ void main(){
       const cur=getPB();
       if(fpm<cur){
         setPB(fpm);
-        badge.textContent='🧈 PB: '+fpm+' fpm';
+        syncPbTag(fpm);
         // Celebrate!
         const msg=document.createElement('div');
         msg.style.cssText='position:fixed;top:30%;left:50%;transform:translateX(-50%);z-index:600;background:linear-gradient(135deg,#0a2040,#0d3060);border:2px solid #5af;border-radius:14px;padding:18px 32px;font-family:monospace;font-weight:900;font-size:18px;color:#5af;text-align:center;animation:pbPop .4s ease-out;pointer-events:none;';
@@ -13086,11 +13129,6 @@ void main(){
         }
         document.body.appendChild(msg);
         setTimeout(()=>msg.remove(),4000);
-      } else if(fpm<100){
-        // Still show butter badge even if not PB
-        badge.textContent='🧈 PB: '+cur+' fpm';
-        badge.style.borderColor='#5af';
-        setTimeout(()=>{badge.style.borderColor='#1e4a7a';},3000);
       }
     }catch(e){}
   };
@@ -13117,13 +13155,6 @@ void main(){
     {code:'TIRE_BURST',label:'TIRE BURST'},
   ];
 
-  const btn=document.createElement('button');
-  btn.id='rouletteBtn';
-  btn.textContent='🎰 Roulette';
-  btn.title='Spin for a random failure (R)';
-  btn.style.cssText='position:fixed;bottom:128px;left:14px;z-index:400;background:#1a0808;color:#f96;border:1px solid #4a1a1a;border-radius:8px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;';
-  document.body.appendChild(btn);
-
   function spinRoulette(){
     try{
       // Spinning animation via repeated fast messages
@@ -13146,9 +13177,9 @@ void main(){
     }catch(e){}
   }
 
-  btn.onclick=spinRoulette;
+  window._spinRoulette=spinRoulette;
   document.addEventListener('keydown',e=>{
-    if(e.code==='KeyR'&&!e.ctrlKey&&!e.altKey&&document.activeElement.tagName!=='INPUT')spinRoulette();
+    if(e.code==='KeyR'&&!e.ctrlKey&&!e.altKey&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))spinRoulette();
   });
 })();
 
@@ -13233,28 +13264,25 @@ void main(){
   let iceLevel=0; // 0..1
   let antiIceOn=false;
 
-  // Anti-ice button
-  const btn=document.createElement('button');
-  btn.id='antiIceBtn';
-  btn.textContent='❄ Anti-Ice OFF';
-  btn.style.cssText='position:fixed;top:56px;right:14px;z-index:400;background:#08111f;color:#8cf;border:1px solid #1e4a7a;border-radius:8px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;display:none;';
-  document.body.appendChild(btn);
+  const syncAntiIceTag=()=>{
+    const tag=document.getElementById('tmAntiIceTag');
+    if(tag)tag.textContent=antiIceOn?'ON':'OFF';
+    const item=document.querySelector('#toolsMenu [data-tool="antiice"]');
+    if(item)item.classList.toggle('active',antiIceOn);
+  };
 
-  btn.onclick=()=>{
+  window._toggleAntiIce=()=>{
     antiIceOn=!antiIceOn;
     window._antiIceOn=antiIceOn;
-    btn.textContent='❄ Anti-Ice '+(antiIceOn?'ON':'OFF');
-    btn.style.background=antiIceOn?'#0a1a3a':'#08111f';
-    btn.style.borderColor=antiIceOn?'#5af':'#1e4a7a';
-    btn.style.color=antiIceOn?'#5af':'#8cf';
+    syncAntiIceTag();
     try{if(typeof showMsg!=='undefined')showMsg(antiIceOn?'❄ ANTI-ICE · ON':'❄ ANTI-ICE · OFF',1500);}catch(e){}
   };
-  window._toggleAntiIce=()=>btn.onclick();
+  syncAntiIceTag();
 
-  // Ice HUD element
+  // Ice HUD element (only appears when actual wing ice accumulates)
   const iceHud=document.createElement('div');
   iceHud.id='iceHud';
-  iceHud.style.cssText='position:fixed;top:96px;right:14px;z-index:400;background:rgba(0,20,50,.85);border:1px solid #3af;border-radius:8px;padding:5px 11px;font-family:monospace;font-size:11px;color:#8cf;display:none;letter-spacing:.05em;';
+  iceHud.style.cssText='position:fixed;top:48px;right:14px;z-index:400;background:rgba(0,20,50,.85);border:1px solid #3af;border-radius:8px;padding:5px 11px;font-family:monospace;font-size:11px;color:#8cf;display:none;letter-spacing:.05em;';
   document.body.appendChild(iceHud);
 
   function iceTick(){
@@ -13272,9 +13300,6 @@ void main(){
         iceLevel=Math.max(0,iceLevel-0.0001);
       }
 
-      // Show anti-ice button when conditions exist or ice is present
-      const show=icing_conditions||iceLevel>0.01;
-      btn.style.display=show?'block':'none';
       iceHud.style.display=(iceLevel>0.02)?'block':'none';
 
       if(iceLevel>0.02){
@@ -14124,28 +14149,26 @@ void main(){
       try{localStorage.setItem(KEY,JSON.stringify(prefs));}catch(e){}
     }
 
-    /* panel */
+    /* panel (opened via Tools menu) */
     const css=document.createElement('style');
     css.textContent=`
-      #cloudBtn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);left:calc(env(safe-area-inset-left,0px) + 8px);z-index:330;background:rgba(8,14,24,.78);color:#cfeeff;border:1px solid rgba(120,200,255,.45);border-radius:9px;padding:6px 10px;font:800 11px/1 system-ui,sans-serif;letter-spacing:.4px;cursor:pointer}
-      #cloudPanel{position:fixed;top:calc(env(safe-area-inset-top,0px) + 50px);left:calc(env(safe-area-inset-left,0px) + 8px);z-index:330;width:220px;padding:12px;box-sizing:border-box;background:rgba(8,14,24,.92);color:#cfeeff;border:1px solid rgba(120,200,255,.45);border-radius:12px;font:12px/1.3 system-ui,sans-serif;display:none}
-      #cloudPanel.open{display:block}
-      #cloudPanel .cp-h{font-weight:800;letter-spacing:1px;margin-bottom:8px;color:#8fd6ff}
+      #cloudPanel{position:fixed;top:56px;left:12px;z-index:9997;width:236px;padding:12px 14px;box-sizing:border-box;background:rgba(8,14,24,.96);backdrop-filter:blur(12px);color:#cfeeff;border:1px solid rgba(120,200,255,.45);border-radius:12px;font:12px/1.3 system-ui,sans-serif;box-shadow:0 16px 40px rgba(0,0,0,.7);display:none}
+      #cloudPanel.open{display:block;animation:faultIn .18s ease-out}
+      #cloudPanel .cp-h{display:flex;justify-content:space-between;align-items:center;font-weight:800;letter-spacing:1px;margin-bottom:8px;color:#8fd6ff}
       #cloudPanel label{display:block;margin:8px 0 4px}
       #cloudPanel input[type=range]{width:100%}
       #cloudPanel .cp-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
       #cloudPanel button{flex:1;background:rgba(60,120,180,.5);color:#fff;border:1px solid rgba(120,200,255,.45);border-radius:7px;padding:6px 4px;font:700 11px sans-serif;cursor:pointer}`;
     document.head.appendChild(css);
 
-    const btn=document.createElement('button');btn.id='cloudBtn';btn.textContent='CLOUDS';
     const panel=document.createElement('div');panel.id='cloudPanel';
     panel.innerHTML=
-      '<div class="cp-h">CLOUD LAYERS</div>'+
+      '<div class="cp-h"><span>CLOUD LAYERS</span><button id="cpX" type="button" style="flex:0;background:none;border:none;color:#8ba3c0;font-size:15px;padding:0 4px;cursor:pointer">✕</button></div>'+
       '<label>Coverage <span id="cpCov"></span></label><input type="range" min="0" max="100" id="cpCovR">'+
       '<label>Opacity <span id="cpOp"></span></label><input type="range" min="10" max="100" id="cpOpR">'+
       '<div class="cp-row"><label><input type="checkbox" id="cpLo"> Low</label><label><input type="checkbox" id="cpMi"> Mid</label><label><input type="checkbox" id="cpHi"> High</label></div>'+
-      '<div class="cp-row"><button id="cpClr">Clear</button><button id="cpFull">Overcast</button></div>';
-    document.body.appendChild(btn);document.body.appendChild(panel);
+      '<div class="cp-row"><button id="cpClr" type="button">Clear</button><button id="cpFull" type="button">Overcast</button></div>';
+    document.body.appendChild(panel);
 
     const $=id=>document.getElementById(id);
     function sync(){
@@ -14153,7 +14176,12 @@ void main(){
       $('cpCov').textContent=prefs.cover+'%';$('cpOp').textContent=prefs.opacity+'%';
       $('cpLo').checked=!!prefs.low;$('cpMi').checked=!!prefs.mid;$('cpHi').checked=!!prefs.high;
     }
-    btn.addEventListener('click',()=>{panel.classList.toggle('open');});
+    window._toggleClouds=()=>{
+      const open=!panel.classList.contains('open');
+      if(open&&window._closeAllHudDrawers)window._closeAllHudDrawers('cloudPanel');
+      panel.classList.toggle('open',open);
+    };
+    $('cpX').addEventListener('click',()=>panel.classList.remove('open'));
     $('cpCovR').addEventListener('input',e=>{prefs.cover=+e.target.value;sync();apply();});
     $('cpOpR').addEventListener('input',e=>{prefs.opacity=+e.target.value;sync();apply();});
     $('cpLo').addEventListener('change',e=>{prefs.low=e.target.checked;apply();});
@@ -14291,3 +14319,88 @@ void main(){
     console.log('[HD PACK 1] sharp near-field satellite ground online');
   }
 })();
+
+/* ===== UNIFIED HUD COMMAND BAR & TOOLS MENU COORDINATOR ===== */
+(function initHudCoordinator(){
+  const toolsBtn=document.getElementById('toolsMenuBtn');
+  const toolsMenu=document.getElementById('toolsMenu');
+  const toolsWrap=document.getElementById('toolsWrap');
+
+  window._closeAllHudDrawers=function(exceptId){
+    const classDrawers=[
+      ['fms','fmsBtn','show'],
+      ['atc','atcBtn','show'],
+      ['mpPanel','mpBtn','show'],
+      ['wxrPanel','wxrBtn','show'],
+      ['faultButtons',null,'show'],
+      ['setPanel',null,'show'],
+      ['cloudPanel',null,'open']
+    ];
+    for(const [id,btnId,cls] of classDrawers){
+      if(id===exceptId)continue;
+      const el=document.getElementById(id);
+      if(el)el.classList.remove(cls);
+      if(btnId){
+        const b=document.getElementById(btnId);
+        if(b)b.classList.remove('on');
+      }
+    }
+    if(exceptId!=='logbookPanel'){
+      const lb=document.getElementById('logbookPanel');
+      if(lb)lb.style.display='none';
+    }
+    if(exceptId!=='keyHelpPanel'){
+      const kh=document.getElementById('keyHelpPanel');
+      if(kh)kh.style.display='none';
+    }
+    if(exceptId!=='toolsMenu'&&toolsMenu){
+      toolsMenu.classList.remove('show');
+      if(toolsBtn){toolsBtn.classList.remove('on');toolsBtn.setAttribute('aria-expanded','false');}
+    }
+  };
+
+  if(toolsBtn&&toolsMenu){
+    toolsBtn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const open=!toolsMenu.classList.contains('show');
+      toolsMenu.classList.toggle('show',open);
+      toolsBtn.classList.toggle('on',open);
+      toolsBtn.setAttribute('aria-expanded',String(open));
+    });
+    toolsMenu.addEventListener('click',e=>{
+      const item=e.target.closest('[data-tool]');
+      if(!item)return;
+      const tool=item.dataset.tool;
+      toolsMenu.classList.remove('show');
+      toolsBtn.classList.remove('on');
+      toolsBtn.setAttribute('aria-expanded','false');
+      if(tool==='clouds'&&window._toggleClouds)window._toggleClouds();
+      else if(tool==='faults'&&window._toggleFaultMenu)window._toggleFaultMenu();
+      else if(tool==='roulette'&&window._spinRoulette)window._spinRoulette();
+      else if(tool==='antiice'&&window._toggleAntiIce)window._toggleAntiIce();
+      else if(tool==='gfx'&&window.cycleGraphicsQuality)window.cycleGraphicsQuality();
+      else if(tool==='logbook'&&window._toggleLogbook)window._toggleLogbook();
+      else if(tool==='settings'&&window._toggleSettings)window._toggleSettings();
+      else if(tool==='offline'&&window.OfflineMaps&&window.OfflineMaps.downloadCurrent)window.OfflineMaps.downloadCurrent();
+      else if(tool==='keys'){
+        const kh=document.getElementById('keyHelpPanel');
+        if(kh){
+          const open=kh.style.display!=='block';
+          if(open)window._closeAllHudDrawers('keyHelpPanel');
+          kh.style.display=open?'block':'none';
+        }
+      }
+    });
+    document.addEventListener('click',e=>{
+      if(toolsWrap&&!toolsWrap.contains(e.target)&&toolsMenu.classList.contains('show')){
+        toolsMenu.classList.remove('show');
+        toolsBtn.classList.remove('on');
+        toolsBtn.setAttribute('aria-expanded','false');
+      }
+    });
+    document.addEventListener('keydown',e=>{
+      if(e.key==='Escape')window._closeAllHudDrawers(null);
+    });
+  }
+})();
+

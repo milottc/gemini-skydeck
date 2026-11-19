@@ -18,12 +18,15 @@
 <!-- Microsoft Windows Tile (Optional, makes it look good when pinned to Start) -->
 <meta name="msapplication-TileImage" content="144.png">
 <title>SkyDeck 737 · Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 /* ============================================================ */
 /* BABYLON FLIGHT 737 · SOLID GAME UI                           */
 /* ============================================================ */
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;overflow:hidden;background:#0b1220;color:#e6edf6;font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;font-weight:500;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+html,body{width:100%;height:100%;overflow:hidden;background:#070d19;color:#e6edf6;font-family:'Plus Jakarta Sans','Segoe UI',system-ui,-apple-system,sans-serif;font-weight:500;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 #renderCanvas{width:100%;height:100%;display:block;outline:none;touch-action:none}
 
 ::-webkit-scrollbar{width:10px;height:10px}
@@ -33,8 +36,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0b1220;color:#e6edf
 
 /* ============ TOP BADGES ============ */
 #errorBanner{position:fixed;top:0;left:0;right:0;z-index:99999;display:none;background:#b91c1c;color:#fff;padding:12px 20px;font-size:13px;white-space:pre-wrap;border-bottom:2px solid #000;font-weight:600;letter-spacing:.3px}
-#bootBadge{position:fixed;top:10px;right:14px;z-index:9999;padding:7px 14px;border-radius:10px;background:rgba(14,21,38,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(34,211,238,.45);color:#a5f3fc;font-size:11px;font-weight:600;letter-spacing:1.5px;box-shadow:0 4px 14px rgba(0,0,0,.3)}
-#camBadge{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9999;padding:9px 20px;border-radius:10px;background:rgba(14,21,38,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(34,211,238,.45);color:#a5f3fc;font-size:12px;font-weight:700;letter-spacing:2.5px;box-shadow:0 4px 14px rgba(0,0,0,.3);pointer-events:none;transition:opacity .4s}
+#bootBadge{position:fixed;top:12px;right:14px;z-index:9999;padding:6px 12px;border-radius:8px;background:rgba(14,21,38,.78);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(34,211,238,.4);color:#a5f3fc;font-size:11px;font-weight:600;letter-spacing:1.2px;box-shadow:0 4px 14px rgba(0,0,0,.3);transition:opacity .35s}
+#bootBadge.done{opacity:0;pointer-events:none}
+#camBadge{position:fixed;top:12px;right:14px;z-index:9998;padding:6px 12px;border-radius:8px;background:rgba(10,16,30,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(100,130,170,.32);color:#cbd5e1;font-size:11px;font-weight:700;letter-spacing:1.5px;box-shadow:0 4px 14px rgba(0,0,0,.28);pointer-events:none;transition:opacity .4s}
 body.cockpit #camBadge{opacity:0}
 
 /* ============ HUD ============ */
@@ -103,28 +107,27 @@ body.cockpit #camBadge{opacity:0}
 #compassCanvas{display:block;width:340px;height:54px}
 
 /* chips */
-#configPanel{position:absolute;left:50%;transform:translateX(-50%);bottom:310px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:85vw}
+#configPanel{position:absolute;left:50%;transform:translateX(-50%);bottom:304px;display:flex;gap:4px;flex-wrap:wrap;justify-content:center;max-width:85vw;opacity:.9}
 .cfgChip{
-  padding:7px 14px;
-  border-radius:9px;
-  background:rgba(15,24,41,.7);
+  padding:4px 9px;
+  border-radius:6px;
+  background:rgba(12,19,34,.68);
   backdrop-filter:blur(8px);
   -webkit-backdrop-filter:blur(8px);
-  border:1px solid rgba(100,130,170,.3);
-  font-size:10.5px;
-  letter-spacing:1px;
-  color:#8ba3c0;
+  border:1px solid rgba(100,130,170,.24);
+  font-size:9.5px;
+  letter-spacing:.7px;
+  color:#94a3b8;
   white-space:nowrap;
   font-weight:700;
   text-transform:uppercase;
-  box-shadow:0 3px 10px rgba(0,0,0,.25);
   transition:all .12s;
 }
-.cfgChip.on{background:#166534;color:#d1fae5;border-color:#22c55e}
-.cfgChip.warn{background:#7c2d12;color:#fed7aa;border-color:#f97316}
-.cfgChip.fire{background:#7f1d1d;color:#fecaca;border-color:#ef4444;animation:blink .5s infinite alternate}
-.cfgChip.rev{background:#4c1d95;color:#e9d5ff;border-color:#a855f7}
-.cfgChip.wx{background:#1e3a8a;color:#dbeafe;border-color:#3b82f6}
+.cfgChip.on{background:rgba(22,101,52,.85);color:#d1fae5;border-color:#22c55e}
+.cfgChip.warn{background:rgba(124,45,18,.85);color:#fed7aa;border-color:#f97316}
+.cfgChip.fire{background:rgba(127,29,29,.9);color:#fecaca;border-color:#ef4444;animation:blink .5s infinite alternate}
+.cfgChip.rev{background:rgba(76,29,149,.85);color:#e9d5ff;border-color:#a855f7}
+.cfgChip.wx{background:rgba(30,58,138,.85);color:#dbeafe;border-color:#3b82f6}
 @keyframes blink{from{opacity:1}to{opacity:.6}}
 
 /* warnings */
@@ -336,27 +339,15 @@ body.cockpit #flightSidebar{opacity:.82}
 #masterWarn .mw{background:#b91c1c;color:#fff}
 #masterWarn .mc{background:#d97706;color:#fff}
 
-#faultTriggers{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:auto}
-#faultToggleBtn{
-  padding:10px 16px;border-radius:10px;
-  background:#1a0d0d;
-  border:2px solid #f97316;color:#fdba74;
-  font-family:inherit;
-  font-size:12px;font-weight:700;
-  cursor:pointer;letter-spacing:1.2px;
-  box-shadow:0 3px 0 #000;
-  transition:transform .08s,box-shadow .08s,filter .15s;
-}
-#faultToggleBtn:hover{filter:brightness(1.15);transform:translateY(-1px);box-shadow:0 4px 0 #000}
-#faultToggleBtn:active{transform:translateY(1px);box-shadow:0 2px 0 #000}
-
+#faultTriggers{position:fixed;top:56px;left:12px;z-index:9997;display:flex;flex-direction:column;align-items:flex-start;gap:8px;pointer-events:none}
+#faultToggleBtn{display:none}
 #faultButtons{
-  max-height:72vh;overflow-y:auto;display:none;flex-direction:column;gap:5px;
+  pointer-events:auto;max-height:72vh;overflow-y:auto;display:none;flex-direction:column;gap:5px;
   padding:12px;border-radius:12px;
-  background:#0a0f1c;
-  border:2px solid #22d3ee;
-  min-width:210px;
-  box-shadow:0 4px 0 #000,0 16px 40px rgba(0,0,0,.7);
+  background:rgba(10,15,28,.96);backdrop-filter:blur(12px);
+  border:1px solid rgba(34,211,238,.5);
+  min-width:220px;
+  box-shadow:0 16px 40px rgba(0,0,0,.7);
 }
 #faultButtons.show{display:flex;animation:faultIn .18s ease-out}
 .fgTitle{
@@ -439,14 +430,57 @@ body.mobile #faultPanel{top:auto;bottom:210px;right:8px}
 
 #smokeHaze{position:fixed;inset:0;z-index:14;pointer-events:none;opacity:0;transition:opacity 2.5s;background:radial-gradient(ellipse at 50% 55%,rgba(90,90,92,.25),rgba(35,35,38,.8) 85%)}
 
+/* ============ UNIFIED TOP COMMAND BAR ============ */
+#hudBar{
+  position:fixed;top:12px;left:12px;z-index:9996;
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  max-width:calc(100vw - 170px);pointer-events:auto;
+}
+.hudBtn,#hudBar button,#fmsBtn,#atcBtn,#mpBtn,#wxrBtn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 11px;border-radius:9px;
+  background:rgba(10,16,30,.78);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid rgba(100,130,170,.35);
+  color:#cbd5e1;font-family:inherit;font-size:11px;font-weight:700;
+  letter-spacing:.3px;cursor:pointer;white-space:nowrap;
+  box-shadow:0 4px 14px rgba(0,0,0,.32);transition:all .12s;
+}
+.hudBtn:hover,#hudBar button:hover,#fmsBtn:hover,#atcBtn:hover,#mpBtn:hover,#wxrBtn:hover{
+  background:rgba(20,34,58,.92);border-color:#38bdf8;color:#f1f5f9;
+}
+.hudBtn.on,#hudBar button.on,#fmsBtn.on,#atcBtn.on,#mpBtn.on,#wxrBtn.on{
+  background:rgba(14,116,144,.88);border-color:#22d3ee;color:#ecfeff;
+}
+#toolsWrap{position:relative}
+#toolsMenu{
+  position:absolute;top:calc(100% + 6px);left:0;z-index:9999;
+  width:216px;padding:6px;border-radius:12px;
+  background:rgba(10,16,30,.96);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid rgba(56,189,248,.4);
+  box-shadow:0 16px 40px rgba(0,0,0,.7);
+  display:none;flex-direction:column;gap:3px;
+}
+#toolsMenu.show{display:flex;animation:faultIn .16s ease-out}
+.tmItem{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:7px 10px;border-radius:7px;background:transparent;border:1px solid transparent;
+  color:#cbd5e1;font-family:inherit;font-size:11.5px;font-weight:600;
+  text-align:left;cursor:pointer;transition:background .1s,border-color .1s,color .1s;
+}
+.tmItem:hover{background:rgba(30,48,80,.85);border-color:rgba(56,189,248,.35);color:#fff}
+.tmItem.active{background:rgba(14,116,144,.32);border-color:rgba(34,211,238,.5);color:#a5f3fc}
+.tmTag{font-size:10px;font-family:monospace;color:#64748b}
+.tmSep{height:1px;background:rgba(100,130,170,.2);margin:3px 4px}
+
 /* ============ FMS ============ */
 #fms{
-  position:fixed;left:14px;top:52px;z-index:9997;
-  width:min(490px,96vw);max-height:92vh;overflow:auto;display:none;
+  position:fixed;left:12px;top:56px;z-index:9997;
+  width:min(490px,96vw);max-height:84vh;overflow:auto;display:none;
   padding:14px;border-radius:12px;
-  background:#0a0f1c;
-  border:2px solid #22d3ee;font-size:11.5px;
-  box-shadow:0 4px 0 #000,0 16px 40px rgba(0,0,0,.7);
+  background:rgba(10,15,28,.96);backdrop-filter:blur(12px);
+  border:1px solid rgba(34,211,238,.55);font-size:11.5px;
+  box-shadow:0 16px 40px rgba(0,0,0,.75);
 }
 #fms.show{display:block;animation:faultIn .22s ease-out}
 #fms .fh{
@@ -454,21 +488,21 @@ body.mobile #faultPanel{top:auto;bottom:210px;right:8px}
   color:#22d3ee;letter-spacing:2px;font-weight:700;
   margin-bottom:8px;font-size:12px;text-transform:uppercase;
 }
-#fms canvas{display:block;width:100%;aspect-ratio:6/5;border-radius:8px;border:2px solid #263652;touch-action:none;background:#050a14}
+#fms canvas{display:block;width:100%;aspect-ratio:6/5;border-radius:8px;border:1px solid #263652;touch-action:none;background:#050a14}
 #fms .row{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;align-items:center;grid-template-columns:none}
-#fms button,#fmsBtn,#mpBtn{
-  padding:8px 11px;border-radius:7px;
+#fms button{
+  padding:7px 10px;border-radius:7px;
   background:#111a2e;
-  border:2px solid #263652;color:#a5b8d0;
+  border:1px solid #263652;color:#a5b8d0;
   font-family:inherit;font-size:11px;font-weight:600;
   cursor:pointer;transition:all .1s;
 }
-#fms button:hover,#fmsBtn:hover,#mpBtn:hover{background:#1e2a44;border-color:#3a8dab;color:#e6edf6}
-#fms button.on,#mpBtn.on{background:#0e7490;border-color:#22d3ee;color:#a5f3fc}
+#fms button:hover{background:#1e2a44;border-color:#3a8dab;color:#e6edf6}
+#fms button.on{background:#0e7490;border-color:#22d3ee;color:#a5f3fc}
 #fms button.mag{background:#4c1d95;border-color:#a855f7;color:#e9d5ff}
 #fms input,#fms select,#mpPanel input,#mpPanel select{
   width:auto;padding:5px 8px;
-  background:#0a0f1c;border:2px solid #263652;
+  background:#0a0f1c;border:1px solid #263652;
   color:#e6edf6;border-radius:6px;
   font-family:inherit;font-size:11.5px;font-weight:500;
 }
@@ -483,37 +517,26 @@ body.mobile #faultPanel{top:auto;bottom:210px;right:8px}
 #fms .fpBox{background:#060c18;border:1px solid #1e324d;border-radius:8px;padding:8px;margin:6px 0}
 #fms .fpSum{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:10.5px;color:#93c5fd;margin-bottom:4px;font-family:monospace}
 #fms .st{color:#fbbf24;margin:5px 0;min-height:14px;font-weight:600}
-#fmsBtn{
-  position:fixed;left:14px;top:10px;z-index:9996;
-  display:block;pointer-events:auto;padding:8px 12px;border-radius:8px;
-  box-shadow:0 3px 0 #000;
-}
-body.mobile #fmsBtn{top:auto;bottom:238px;left:8px}
-body.mobile #fms{top:8px;left:2vw}
+body.mobile #fms{top:52px;left:2vw}
 
 /* ============ MULTIPLAYER ============ */
-#mpBtn{
-  position:fixed;left:316px;top:10px;z-index:9996;
-  display:flex;align-items:center;gap:6px;pointer-events:auto;
-  padding:8px 12px;border-radius:8px;border-color:#38bdf8;color:#bae6fd;
-  box-shadow:0 3px 0 #000;
-}
+#mpBtn{border-color:rgba(56,189,248,.5);color:#bae6fd}
 .mpDot{width:8px;height:8px;border-radius:50%;background:#64748b;display:inline-block;flex-shrink:0}
 .mpDot.on{background:#22c55e;box-shadow:0 0 8px #22c55e}
 .mpDot.wait{background:#f59e0b}
 #mpPanel{
-  position:fixed;left:316px;top:52px;z-index:9997;
+  position:fixed;left:12px;top:56px;z-index:9997;
   width:min(380px,95vw);max-height:84vh;overflow:auto;display:none;
-  padding:14px;border-radius:12px;background:#0a0f1c;
-  border:2px solid #38bdf8;font-size:11.5px;color:#cbd5e1;
-  box-shadow:0 4px 0 #000,0 16px 40px rgba(0,0,0,.7);
+  padding:14px;border-radius:12px;background:rgba(10,15,28,.96);backdrop-filter:blur(12px);
+  border:1px solid rgba(56,189,248,.55);font-size:11.5px;color:#cbd5e1;
+  box-shadow:0 16px 40px rgba(0,0,0,.75);
 }
 #mpPanel.show{display:block;animation:faultIn .22s ease-out}
 #mpPanel .fh{display:flex;justify-content:space-between;align-items:center;color:#38bdf8;letter-spacing:2px;font-weight:700;margin-bottom:10px;font-size:12px;text-transform:uppercase}
 #mpPanel .row{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0;align-items:center}
-#mpPanel button{padding:7px 10px;border-radius:7px;background:#111a2e;border:2px solid #263652;color:#bae6fd;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer}
+#mpPanel button{padding:6px 10px;border-radius:7px;background:#111a2e;border:1px solid #263652;color:#bae6fd;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer}
 #mpPanel button:hover{background:#1e2a44;border-color:#38bdf8}
-#mpList{max-height:175px;overflow:auto;background:#060c18;border:1px solid #1e324d;border-radius:8px;padding:6px;margin:6px 0}
+#mpList{max-height:190px;overflow:auto;background:#060c18;border:1px solid #1e324d;border-radius:8px;padding:6px;margin:6px 0}
 .mpPilot{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px;border-bottom:1px solid #162338;font-size:11px}
 .mpPilot:last-child{border-bottom:none}
 .mpPilotName{color:#38bdf8;font-weight:700}
@@ -528,44 +551,36 @@ body.mobile #fms{top:8px;left:2vw}
   box-shadow:0 2px 8px rgba(0,0,0,.5);
 }
 #fpHudPill{
-  position:fixed;top:52px;left:50%;transform:translateX(-50%);z-index:11;
-  display:none;pointer-events:none;padding:6px 14px;border-radius:9px;
+  position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:11;
+  display:none;pointer-events:none;padding:5px 12px;border-radius:8px;
   background:rgba(10,18,34,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-  border:1px solid rgba(240,75,255,.55);color:#f5d0fe;
-  font:700 11px/1.2 monospace;letter-spacing:.7px;box-shadow:0 4px 12px rgba(0,0,0,.35);
+  border:1px solid rgba(240,75,255,.45);color:#f5d0fe;
+  font:700 10.5px/1.2 monospace;letter-spacing:.6px;box-shadow:0 4px 12px rgba(0,0,0,.35);
 }
 #fpHudPill.show{display:block}
 .setupSubCard{background:#091324;border:1px solid #1c3557;border-radius:8px;padding:10px;margin-bottom:12px}
 .fpRouteChips{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px}
 .fpChip{font:700 10px monospace;padding:3px 6px;border-radius:5px;background:#11223d;border:1px solid #2b4d7e;color:#bae6fd}
 .fpChip.dest{background:#2e1065;border-color:#a855f7;color:#f3e8ff}
-body.mobile #mpBtn,body.mobile #mpPanel,body.mobile #fpHudPill{display:none!important}
+body.mobile #mpPanel,body.mobile #fpHudPill{display:none!important}
 
 /* ============ LIVE WEATHER RADAR ============ */
-#wxrBtn{
-  position:fixed;left:424px;top:10px;z-index:9996;
-  display:flex;align-items:center;gap:6px;pointer-events:auto;
-  padding:8px 12px;border-radius:8px;
-  background:#111a2e;border:2px solid #22c55e;color:#bbf7d0;
-  font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;
-  box-shadow:0 3px 0 #000;transition:all .12s;
-}
-#wxrBtn:hover{background:#1e2a44;filter:brightness(1.1)}
+#wxrBtn{border-color:rgba(34,197,94,.45);color:#bbf7d0}
 #wxrBtn.warn{border-color:#f59e0b;color:#fde68a}
 #wxrBtn.severe{border-color:#ef4444;color:#fecaca}
 .wxrDot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;flex-shrink:0}
 #wxrBtn.warn .wxrDot{background:#f59e0b;box-shadow:0 0 8px #f59e0b}
 #wxrBtn.severe .wxrDot{background:#ef4444;box-shadow:0 0 9px #ef4444;animation:blink .6s infinite alternate}
 #wxrPanel{
-  position:fixed;left:424px;top:52px;z-index:9997;
-  width:min(395px,95vw);max-height:88vh;overflow:auto;display:none;
-  padding:12px;border-radius:12px;background:#070d18;
-  border:2px solid #22c55e;font-size:11.5px;color:#cbd5e1;
-  box-shadow:0 4px 0 #000,0 16px 40px rgba(0,0,0,.78);
+  position:fixed;left:12px;top:56px;z-index:9997;
+  width:min(395px,95vw);max-height:84vh;overflow:auto;display:none;
+  padding:12px;border-radius:12px;background:rgba(7,13,24,.96);backdrop-filter:blur(12px);
+  border:1px solid rgba(34,197,94,.55);font-size:11.5px;color:#cbd5e1;
+  box-shadow:0 16px 40px rgba(0,0,0,.78);
 }
 #wxrPanel.show{display:block;animation:faultIn .22s ease-out}
 #wxrPanel .fh{display:flex;justify-content:space-between;align-items:center;color:#4ade80;letter-spacing:1.8px;font-weight:700;margin-bottom:8px;font-size:11.5px;text-transform:uppercase}
-#wxrPanel canvas{display:block;width:100%;aspect-ratio:360/300;border-radius:8px;border:2px solid #1e3548;background:#02070c;cursor:crosshair}
+#wxrPanel canvas{display:block;width:100%;aspect-ratio:360/300;border-radius:8px;border:1px solid #1e3548;background:#02070c;cursor:crosshair}
 #wxrPanel .row{display:flex;gap:5px;flex-wrap:wrap;margin:7px 0;align-items:center}
 #wxrPanel button{padding:6px 9px;border-radius:6px;background:#111a2e;border:1px solid #263652;color:#bae6fd;font-family:inherit;font-size:10.5px;font-weight:700;cursor:pointer;transition:all .1s}
 #wxrPanel button:hover{background:#1e2a44;border-color:#38bdf8}
@@ -576,28 +591,18 @@ body.mobile #mpBtn,body.mobile #mpPanel,body.mobile #fpHudPill{display:none!impo
 #wxrAdv{font:700 11px/1.35 monospace;padding:6px 8px;border-radius:7px;background:#0a1524;border:1px solid #1e3548;color:#86efac;margin-top:6px}
 #wxrAdv.warn{border-color:#f59e0b;color:#fde68a;background:#1f1505}
 #wxrAdv.severe{border-color:#ef4444;color:#fecaca;background:#220a0c}
-body.mobile #wxrBtn{top:auto;bottom:238px;left:222px;padding:7px 9px;font-size:10px}
-body.mobile #wxrPanel{top:8px;left:2vw}
+body.mobile #wxrPanel{top:52px;left:2vw}
 
 /* ============ ATC ============ */
-#atcBtn{
-  position:fixed;left:155px;top:10px;z-index:9996;
-  padding:8px 12px;border-radius:8px;
-  background:#111a2e;
-  border:2px solid #22c55e;color:#bbf7d0;
-  font-family:inherit;font-size:11px;font-weight:700;
-  cursor:pointer;box-shadow:0 3px 0 #000;
-  transition:all .1s;
-}
-#atcBtn:hover{filter:brightness(1.15)}
+#atcBtn{border-color:rgba(34,197,94,.45);color:#bbf7d0}
 #atc{
-  position:fixed;left:155px;top:52px;z-index:9997;
+  position:fixed;left:12px;top:56px;z-index:9997;
   width:min(390px,96vw);display:none;
   padding:14px;border-radius:12px;
-  background:#0a0f1c;
-  border:2px solid #22c55e;
+  background:rgba(10,15,28,.96);backdrop-filter:blur(12px);
+  border:1px solid rgba(34,197,94,.55);
   font-size:11.5px;color:#a5b8d0;
-  box-shadow:0 4px 0 #000,0 16px 40px rgba(0,0,0,.7);
+  box-shadow:0 16px 40px rgba(0,0,0,.75);
 }
 #atc.show{display:block;animation:faultIn .22s ease-out}
 #atc .fh{
@@ -608,7 +613,7 @@ body.mobile #wxrPanel{top:8px;left:2vw}
 #atcLog{
   height:200px;overflow:auto;
   background:#050a14;
-  border:2px solid #263652;
+  border:1px solid #263652;
   border-radius:8px;padding:8px;
   margin-bottom:8px;
 }
@@ -619,40 +624,26 @@ body.mobile #wxrPanel{top:8px;left:2vw}
 #atc button{
   padding:8px;border-radius:7px;
   background:#111a2e;
-  border:2px solid #263652;color:#a5b8d0;
+  border:1px solid #263652;color:#a5b8d0;
   font-family:inherit;font-size:11px;font-weight:600;
   cursor:pointer;transition:all .1s;
 }
 #atc button:hover{background:#1e2a44;border-color:#22c55e;color:#bbf7d0}
-body.mobile #atcBtn{top:auto;bottom:238px;left:135px}
-body.mobile #atc{top:8px;left:2vw}
+body.mobile #atc{top:52px;left:2vw}
 
 /* ============ CAREER / TYCOON LAYER ============ */
+body{--sidebar-width:265px}
 #flightSidebar{
-  position:fixed;top:12px;bottom:12px;left:12px;z-index:40;
-  width:48px;display:flex;flex-direction:column;align-items:stretch;gap:10px;
-  padding:8px;border:1px solid rgba(126,157,196,.24);border-radius:16px;
-  background:rgba(9,16,29,.76);backdrop-filter:blur(16px) saturate(1.25);
+  position:fixed;top:56px;bottom:12px;left:12px;z-index:40;
+  width:var(--sidebar-width);display:none;flex-direction:column;align-items:stretch;gap:10px;
+  padding:12px;border:1px solid rgba(126,157,196,.28);border-radius:14px;
+  background:rgba(9,16,29,.92);backdrop-filter:blur(16px) saturate(1.25);
   -webkit-backdrop-filter:blur(16px) saturate(1.25);
-  box-shadow:0 12px 36px rgba(0,0,0,.32);
-  transition:width .2s ease,padding .2s ease;
+  box-shadow:0 12px 36px rgba(0,0,0,.52);
   pointer-events:auto;overflow:hidden;
 }
-body{--sidebar-width:260px}
-body.sidebar-open #flightSidebar{width:var(--sidebar-width);padding:10px}
-#sidebarToggle{
-  flex:0 0 32px;width:32px;height:32px;display:grid;place-items:center;
-  border:1px solid rgba(100,130,170,.28);border-radius:10px;
-  background:rgba(20,31,50,.92);color:#c8d7e8;
-  font-family:inherit;font-size:16px;font-weight:700;line-height:1;cursor:pointer;
-  transition:background .15s,color .15s;
-}
-#sidebarToggle:hover,#sidebarToggle:focus-visible{background:#12304a;color:#67e8f9;outline:none}
-body.sidebar-open #sidebarToggle{width:100%;display:flex;justify-content:flex-start;gap:11px;padding:0 10px}
-#sidebarToggle .menuLabel{display:none;font-size:11px;letter-spacing:1.5px}
-body.sidebar-open #sidebarToggle .menuLabel{display:inline}
-#sidebarContent{display:none;min-width:0;flex:1;overflow:auto;scrollbar-width:thin}
-body.sidebar-open #sidebarContent{display:flex;flex-direction:column;gap:12px}
+body.sidebar-open #flightSidebar{display:flex;animation:faultIn .18s ease-out}
+#sidebarContent{display:flex;flex-direction:column;gap:12px;min-width:0;flex:1;overflow:auto;scrollbar-width:thin}
 .sidebarTitle{
   padding:2px 3px 8px;border-bottom:1px solid rgba(126,157,196,.2);
   color:#a5f3fc;font-size:10px;font-weight:800;letter-spacing:2px;
@@ -663,12 +654,12 @@ body.sidebar-open #sidebarContent{display:flex;flex-direction:column;gap:12px}
   color:#e6edf6;font-size:12px;letter-spacing:.2px;
 }
 #flightSidebar .chStat{
-  min-height:40px;padding:8px 10px;border:1px solid rgba(100,130,170,.2);
-  border-radius:10px;background:rgba(18,29,47,.76);
+  min-height:38px;padding:7px 10px;border:1px solid rgba(100,130,170,.2);
+  border-radius:9px;background:rgba(18,29,47,.76);
 }
 #flightSidebar .chBtn{
-  width:100%;min-height:38px;padding:9px 10px;text-align:left;
-  border:1px solid rgba(34,211,238,.32);border-radius:10px;
+  width:100%;min-height:36px;padding:8px 10px;text-align:left;
+  border:1px solid rgba(34,211,238,.32);border-radius:9px;
   background:rgba(14,116,144,.18);color:#b9f5fc;
   box-shadow:none;font-size:11px;letter-spacing:.7px;
 }
@@ -681,25 +672,9 @@ body.sidebar-open #sidebarContent{display:flex;flex-direction:column;gap:12px}
 #flightSidebar #infoBox .lbl{font-size:10px;letter-spacing:1px}
 #flightSidebar #infoBox .sub{font-size:10px}
 #flightSidebar #infoBox #senTxt:empty{display:none}
-body.sidebar-open #objHud{left:calc(var(--sidebar-width) + 22px)}
-body.sidebar-open #fms{left:calc(var(--sidebar-width) + 22px)}
-body.sidebar-open #atc{left:calc(var(--sidebar-width) + 22px)}
-body.sidebar-open #fmsBtn{left:calc(var(--sidebar-width) + 22px)}
-body.sidebar-open #atcBtn{left:calc(var(--sidebar-width) + 163px)}
-body.sidebar-open #mpBtn{left:calc(var(--sidebar-width) + 266px)}
-body.sidebar-open #mpPanel{left:calc(var(--sidebar-width) + 266px)}
-body.sidebar-open #wxrBtn{left:calc(var(--sidebar-width) + 374px)}
-body.sidebar-open #wxrPanel{left:calc(var(--sidebar-width) + 374px)}
-#objHud{left:72px}
-#fmsBtn{left:72px}
-#atcBtn{left:213px}
-#mpBtn{left:316px}
-#mpPanel{left:316px}
-#wxrBtn{left:424px}
-#wxrPanel{left:424px}
-#cloudBtn{left:72px!important}
-body.sidebar-open #cloudBtn{left:calc(var(--sidebar-width) + 22px)!important}
-body.cockpit #flightSidebar{opacity:.86}
+#objHud{left:12px}
+body.sidebar-open #objHud{left:calc(var(--sidebar-width) + 24px)}
+body.cockpit #flightSidebar{opacity:.94}
 .chStat{
   display:flex;gap:6px;align-items:center;
   padding:5px 12px;
@@ -968,218 +943,456 @@ body.cockpit #flightSidebar{opacity:.86}
   to{box-shadow:0 3px 0 #000,0 0 20px rgba(251,191,36,.6)}
 }
   /* ============================================================ */
-/* HOME SCREEN REBUILD                                          */
+/* HOME SCREEN · FLIGHT DECK DISPATCH                           */
 /* ============================================================ */
 
-/* Overlay: full-bleed scene, raised above in-flight HUD chrome */
+/* Full-bleed atmospheric backdrop */
 #overlay {
   position: fixed;
   inset: 0;
   z-index: 9999;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  background: #000;
-  overflow: auto;
-  padding: 24px;
+  justify-content: flex-start;
+  background-color: #050a14;
+  background-image:
+    radial-gradient(ellipse 85% 60% at 50% 0%, rgba(14, 116, 144, 0.18) 0%, transparent 65%),
+    linear-gradient(180deg, rgba(4, 9, 18, 0.64) 0%, rgba(5, 11, 22, 0.84) 42%, rgba(4, 8, 16, 0.96) 100%),
+    url('/src/assets/images/hero_skydeck_runway_1795051061701.jpg');
+  background-size: cover;
+  background-position: center 28%;
+  background-attachment: fixed;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 68px 24px 28px;
 }
 #overlay.hidden { display: none; }
 
-/* ── Starfield canvas ── */
+/* Starfield canvas (mobile-only fallback layer) */
 #homeStars {
   position: fixed; inset: 0; pointer-events: none; z-index: 0;
 }
-/* Starfield is mobile-only per request: hide it on desktop */
-body:not(.mobile) #homeStars{display:none!important}
-/* Make homeCard sit above starfield */
-.homeCard { position: relative; z-index: 1; }
+body:not(.mobile) #homeStars { display: none !important; }
 
-/* Master card */
+/* Master dispatch shell */
 .homeCard {
   position: relative;
-  width: min(1060px, 96vw);
-  max-height: calc(100vh - 48px);
+  z-index: 1;
+  width: min(1240px, 100%);
+  max-height: calc(100dvh - 92px);
+  min-height: min(640px, calc(100dvh - 92px));
   display: flex;
   flex-direction: column;
-  background: #09101e;
-  border: 1px solid rgba(255,255,255,.07);
-  border-radius: 8px;
-  box-shadow: 0 40px 120px rgba(0,0,0,.95);
+  background: rgba(8, 14, 26, 0.78);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   overflow: hidden;
 }
 
-/* ---------- HERO ---------- */
+/* ---------- HERO STAGE ---------- */
 .homeHero {
   position: relative;
-  padding: 20px 40px 14px;
-  text-align: center;
-  background: #000;
-  border-bottom: 1px solid rgba(255,255,255,.06);
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.85fr);
+  align-items: end;
+  gap: 24px;
+  padding: 22px 30px 20px;
+  text-align: left;
+  background:
+    linear-gradient(100deg, rgba(6, 12, 24, 0.92) 0%, rgba(7, 15, 29, 0.72) 55%, rgba(6, 12, 24, 0.88) 100%),
+    url('/src/assets/images/hero_skydeck_runway_1795051061701.jpg');
+  background-size: cover;
+  background-position: center 44%;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
   flex-shrink: 0;
   overflow: hidden;
 }
-/* Subtle cyan radial behind the title */
-.homeHero::before {
-  content: '';
-  position: absolute;
-  top: -20px; left: 50%;
-  transform: translateX(-50%);
-  width: 600px; height: 240px;
-  background: radial-gradient(ellipse, rgba(34,211,238,.07) 0%, transparent 70%);
-  pointer-events: none;
-}
-/* Thin bottom rule */
 .homeHero::after {
   content: '';
   position: absolute;
-  bottom: 0; left: 50%;
-  transform: translateX(-50%);
-  width: 200px; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(34,211,238,.5), transparent);
+  inset: auto 0 0 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.45), transparent);
+  pointer-events: none;
+}
+
+.heroLeft {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+.heroKicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #38bdf8;
+  margin-bottom: 8px;
+}
+.heroLiveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.85);
 }
 
 .heroTitle {
-  font-size: 36px;
-  letter-spacing: 8px;
-  font-weight: 900;
+  font-family: 'Barlow Condensed', 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(36px, 4.4vw, 56px);
+  letter-spacing: 3px;
+  font-weight: 800;
   text-transform: uppercase;
-  line-height: 1;
-  color: #fff;
-  margin: 0 0 8px;
+  line-height: 0.95;
+  color: #f8fafc;
+  margin: 0 0 10px;
+  text-wrap: balance;
 }
 .heroTitle span {
   color: #22d3ee;
-  text-shadow: 0 0 30px rgba(34,211,238,.6), 0 0 80px rgba(34,211,238,.2);
 }
 .heroSub {
-  font-size: 9px;
-  letter-spacing: 2.5px;
-  color: rgba(255,255,255,.22);
+  font-size: 14px;
+  line-height: 1.5;
+  color: #cbd5e1;
   font-weight: 500;
-  text-transform: uppercase;
+  max-width: 56ch;
+  margin-bottom: 14px;
 }
 
-/* Feature tags — minimal, single line */
-.heroPills {
+/* Unboxed typographic capabilities */
+.heroHighlights {
   display: flex;
-  justify-content: center;
-  flex-wrap: nowrap;
-  gap: 0;
-  padding: 8px 20px 0;
-  overflow: hidden;
-}
-.heroPill {
-  font-size: 8px;
-  letter-spacing: .8px;
-  color: rgba(255,255,255,.2);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 11.5px;
   font-weight: 600;
-  text-transform: uppercase;
-  padding: 3px 10px;
-  border-right: 1px solid rgba(255,255,255,.07);
-  white-space: nowrap;
-  transition: color .2s;
+  letter-spacing: 0.4px;
+  color: #94a3b8;
 }
-.heroPill:last-child { border-right: none; }
-.heroPill:hover { color: rgba(34,211,238,.7); }
+.heroHighlights span {
+  white-space: nowrap;
+}
+.heroHighlights .dot {
+  color: rgba(56, 189, 248, 0.55);
+}
 
-/* ---------- BODY (two-column) ---------- */
+/* Right hero flight brief card */
+.heroBrief {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: rgba(7, 13, 25, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+.heroBriefRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  padding-bottom: 8px;
+}
+.heroBriefRow:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.heroBriefLbl {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.heroBriefVal {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e2e8f0;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+.heroQuickActions {
+  display: flex;
+  gap: 8px;
+  padding-top: 2px;
+}
+.heroGhostBtn {
+  flex: 1;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(15, 23, 42, 0.72);
+  color: #e2e8f0;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.heroGhostBtn:hover {
+  background: rgba(30, 41, 59, 0.92);
+  border-color: rgba(34, 211, 238, 0.55);
+  color: #f8fafc;
+}
+
+/* ---------- BODY (Navigation rail + 2-col Dispatch) ---------- */
 .homeBody {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
   display: grid;
-  grid-template-columns: 164px minmax(0,1.35fr) minmax(0,1fr);
+  grid-template-columns: 186px minmax(0, 1.35fr) minmax(0, 1fr);
   align-content: start;
 }
-#homeMenu{
-  position:sticky;top:0;grid-column:1;grid-row:1 / span 2;align-self:start;
-  display:flex;flex-direction:column;gap:6px;min-height:100%;
-  padding:16px 10px;background:#070d1a;border-right:1px solid #1a2540;
+#homeMenu {
+  position: sticky;
+  top: 0;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 100%;
+  padding: 18px 12px;
+  background: rgba(6, 11, 22, 0.72);
+  border-right: 1px solid rgba(148, 163, 184, 0.12);
 }
-.homeMenuLabel{
-  margin:0 6px 6px;color:#526b86;font-size:8px;font-weight:800;
-  letter-spacing:2px;text-transform:uppercase;
-}
-.homeNavItem{
-  display:flex;align-items:center;gap:10px;width:100%;padding:10px 11px;
-  border:1px solid transparent;border-radius:7px;background:transparent;
-  color:#8297b0;font-family:inherit;font-size:10px;font-weight:700;line-height:1.2;
-  letter-spacing:.7px;text-align:left;
-  text-transform:uppercase;cursor:pointer;transition:background .15s,color .15s,border-color .15s;
-}
-.homeNavItem .navIcon{width:16px;color:#56718c;font-size:13px;text-align:center}
-.homeNavItem:hover{color:#dbeafe;background:#101b2d}
-.homeNavItem[aria-current="page"]{
-  color:#a5f3fc;background:rgba(8,145,178,.14);border-color:rgba(34,211,238,.2);
-}
-.homeNavItem[aria-current="page"] .navIcon{color:#22d3ee}
-.homeCol { padding: 14px 20px 16px; }
-.homeMain { grid-column:2; border-right: 1px solid #1a2540; }
-.homeSide { background: #070d1a; }
-.homeControlsFull{grid-column:2 / span 2}
-
-.homeColHead {
-  font-size: 9px;
-  letter-spacing: 3px;
-  color: #22d3ee;
-  font-weight: 800;
-  margin-bottom: 10px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid #1a2540;
+.homeMenuLabel {
+  margin: 0 8px 8px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
   text-transform: uppercase;
 }
-.homeColHead:not(:first-child) { margin-top: 16px; }
+.homeNavItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.2px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.homeNavItem .navIcon {
+  width: 16px;
+  color: #64748b;
+  font-size: 13px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.homeNavItem:hover {
+  color: #f1f5f9;
+  background: rgba(30, 41, 59, 0.55);
+}
+.homeNavItem[aria-current="page"] {
+  color: #ecfeff;
+  background: rgba(14, 116, 144, 0.24);
+  border-color: rgba(34, 211, 238, 0.35);
+}
+.homeNavItem[aria-current="page"] .navIcon {
+  color: #22d3ee;
+}
+.homeNavSep {
+  height: 1px;
+  background: rgba(148, 163, 184, 0.12);
+  margin: 8px 6px;
+}
 
-/* ---------- FIELDS ---------- */
-.field { margin-bottom: 8px; }
+.homeCol { padding: 20px 24px 22px; }
+.homeMain {
+  grid-column: 2;
+  border-right: 1px solid rgba(148, 163, 184, 0.12);
+}
+.homeSide {
+  background: rgba(6, 11, 22, 0.45);
+}
+.homeControlsFull { grid-column: 2 / span 2; }
+
+.homeColHead {
+  font-family: 'Barlow Condensed', 'Plus Jakarta Sans', sans-serif;
+  font-size: 15px;
+  letter-spacing: 2px;
+  color: #e2e8f0;
+  font-weight: 700;
+  margin-bottom: 12px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  text-transform: uppercase;
+}
+.homeColHead:not(:first-child) { margin-top: 22px; }
+
+/* ---------- FIELDS & SUBCARDS ---------- */
+.setupSubCard {
+  background: rgba(10, 17, 32, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.field { margin-bottom: 12px; }
 .field:last-child { margin-bottom: 0; }
 .field label {
   display: block;
-  font-size: 9px;
-  letter-spacing: 1.5px;
-  color: #5a7a9a;
-  margin-bottom: 4px;
+  font-size: 11px;
+  letter-spacing: 0.9px;
+  color: #94a3b8;
+  margin-bottom: 6px;
   text-transform: uppercase;
   font-weight: 700;
 }
-.field label .opt { color: #3a5060; font-weight: 500; }
-.field select, .field input {
+.field label .opt { color: #64748b; font-weight: 500; text-transform: none; letter-spacing: 0; }
+.field select, .field input, #airportSearch {
   width: 100%;
-  padding: 7px 10px;
-  background: #0a0f1c;
-  border: 1px solid #1e2e48;
-  border-radius: 5px;
-  color: #d0dff0;
+  min-height: 40px;
+  padding: 8px 12px;
+  background: #070e1b;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  color: #f1f5f9;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   outline: none;
-  transition: border-color .15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.field select:focus, .field input:focus { border-color: #22d3ee; }
+#airportSearch {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  margin-bottom: 8px;
+}
+.field select:focus, .field input:focus, #airportSearch:focus {
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.16);
+}
 .field select { cursor: pointer; }
-.field select option { background: #0a0f1c; color: #e6edf6; }
+.field select option { background: #0a1324; color: #f1f5f9; }
 
 .fieldRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
+.fieldRow:last-child { margin-bottom: 0; }
 .fieldRow .field { margin-bottom: 0; }
+
+/* Flight Plan inline buttons & chips */
+.fpActionsRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.fpBtnPrimary {
+  min-height: 36px;
+  padding: 7px 14px;
+  border-radius: 7px;
+  border: 1px solid rgba(34, 211, 238, 0.6);
+  background: rgba(14, 116, 144, 0.45);
+  color: #ecfeff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.fpBtnPrimary:hover {
+  background: rgba(8, 145, 178, 0.72);
+  border-color: #22d3ee;
+}
+.fpBtnGhost {
+  min-height: 36px;
+  padding: 7px 12px;
+  border-radius: 7px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.7);
+  color: #cbd5e1;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.fpBtnGhost:hover {
+  background: rgba(30, 41, 59, 0.9);
+  color: #f8fafc;
+}
+#homeFpSummary {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  color: #7dd3fc;
+}
+.fpRouteChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.fpChip {
+  font: 600 11px 'JetBrains Mono', monospace;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(56, 189, 248, 0.26);
+  color: #bae6fd;
+}
+.fpChip.dest {
+  background: rgba(8, 145, 178, 0.22);
+  border-color: rgba(34, 211, 238, 0.55);
+  color: #ecfeff;
+}
 
 /* Custom location sub-panel */
 #customRow {
-  margin-top: 8px;
-  padding: 10px;
-  background: #0a1424;
-  border: 1px solid #1e2e48;
-  border-radius: 6px;
+  margin-top: 10px;
+  padding: 12px;
+  background: rgba(10, 17, 32, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 8px;
 }
 .customGrid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
 }
 .customGrid .field { margin-bottom: 0; }
 
@@ -1187,61 +1400,97 @@ body:not(.mobile) #homeStars{display:none!important}
 .checkRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  background: #0a0f1c;
-  border: 1px solid #1e2e48;
-  border-radius: 5px;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 12px;
+  background: #070e1b;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
   cursor: pointer;
-  margin-bottom: 6px;
-  transition: border-color .15s;
+  margin-bottom: 8px;
+  transition: border-color 0.15s;
   user-select: none;
 }
-.checkRow:hover { border-color: #2a3a58; }
+.checkRow:hover { border-color: rgba(56, 189, 248, 0.45); }
 .checkRow input[type="checkbox"] {
-  width: 14px; height: 14px;
+  width: 16px;
+  height: 16px;
   accent-color: #22d3ee;
   cursor: pointer;
   margin: 0;
   flex-shrink: 0;
 }
 .checkLabel {
-  font-size: 10px;
-  letter-spacing: 1px;
-  color: #c0d0e0;
-  font-weight: 700;
-  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  color: #e2e8f0;
+  font-weight: 600;
 }
 
-/* Hint blocks */
+/* Clean surface notes (no border-left stripe) */
 .hint {
-  font-size: 10.5px;
-  line-height: 1.5;
-  color: #6a8aaa;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #94a3b8;
   font-weight: 500;
-  padding: 7px 10px;
-  background: #0a0f1c;
-  border-left: 2px solid #22d3ee;
-  border-radius: 4px;
-  margin-bottom: 0;
+  padding: 11px 13px;
+  background: rgba(10, 17, 32, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  margin-bottom: 12px;
 }
-.hint b { color: #c0d8f0; font-weight: 700; }
+.hint:last-child { margin-bottom: 0; }
+.hint b { color: #e2e8f0; font-weight: 700; }
+
+/* Challenge button & multiplayer status */
+#mpHomeStatus {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  color: #38bdf8;
+  margin-top: 8px;
+}
+#cwChallengeBtn {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #bae6fd;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+#cwChallengeBtn:hover {
+  background: rgba(14, 116, 144, 0.25);
+  border-color: #22d3ee;
+  color: #f8fafc;
+}
+.cwSubText {
+  font-size: 11.5px;
+  color: #94a3b8;
+  line-height: 1.45;
+}
 
 /* ---------- CONTROLS (full-width collapsible) ---------- */
 .homeControlsFull {
   grid-column: 2 / span 2;
-  border-top: 1px solid #1a2540;
-  padding: 0 20px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  padding: 4px 24px 8px;
 }
 .controlsDetails summary {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 0;
-  font-size: 9px;
-  letter-spacing: 3px;
-  color: #5a7a9a;
-  font-weight: 800;
+  padding: 12px 0;
+  font-family: 'Barlow Condensed', 'Plus Jakarta Sans', sans-serif;
+  font-size: 14px;
+  letter-spacing: 2px;
+  color: #cbd5e1;
+  font-weight: 700;
   text-transform: uppercase;
   cursor: pointer;
   list-style: none;
@@ -1253,53 +1502,68 @@ body:not(.mobile) #homeStars{display:none!important}
   color: #22d3ee;
   font-size: 12px;
   display: inline-block;
-  transition: transform .2s;
+  transition: transform 0.2s;
   flex-shrink: 0;
 }
 .controlsDetails[open] summary::before { transform: rotate(90deg); }
 .controlsDetails summary:hover,
-.controlsDetails[open] summary { color: #e6edf6; }
+.controlsDetails[open] summary { color: #f8fafc; }
 .controlsDetails .keys {
   display: grid;
   grid-template-columns: auto 1fr auto 1fr;
-  gap: 6px 20px;
-  font-size: 11px;
-  color: #a5b8d0;
-  padding: 0 0 18px;
+  gap: 8px 20px;
+  font-size: 12px;
+  color: #cbd5e1;
+  padding: 0 0 16px;
   background: transparent;
   border: none;
   border-radius: 0;
   margin: 0;
 }
 .controlsDetails .keys b {
-  color: #e6edf6;
-  font-weight: 700;
-  font-size: 10.5px;
-  padding: 2px 8px;
-  background: #1e2a44;
-  border: 1px solid #3a4a68;
+  font-family: 'JetBrains Mono', monospace;
+  color: #f8fafc;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 3px 8px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.26);
   border-radius: 5px;
-  letter-spacing: .3px;
+  letter-spacing: 0.2px;
   white-space: nowrap;
   align-self: center;
 }
+#wii-sync-btn {
+  min-height: 36px;
+  padding: 7px 14px;
+  border-radius: 7px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #bae6fd;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+#wii-sync-btn:hover { border-color: #22d3ee; color: #fff; }
 
-/* ---------- FOOTER ---------- */
+/* ---------- FOOTER LAUNCH BAR ---------- */
 .homeFoot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 10px 20px;
-  border-top: 1px solid #1a2540;
-  background: #060c18;
+  padding: 14px 24px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(5, 10, 20, 0.92);
   flex-shrink: 0;
 }
 #loadStatus {
+  font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
-  color: #22d3ee;
+  color: #38bdf8;
   font-weight: 600;
-  letter-spacing: .5px;
+  letter-spacing: 0.4px;
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -1307,102 +1571,110 @@ body:not(.mobile) #homeStars{display:none!important}
   white-space: nowrap;
 }
 #startBtn {
-  padding: 15px 52px;
+  margin-top: 0;
+  width: auto;
   min-width: 240px;
-  border: none;
-  border-radius: 4px;
-  background: #06b6d4;
-  color: #000;
-  font-family: inherit;
-  font-size: 11px;
-  letter-spacing: 5px;
-  font-weight: 900;
+  min-height: 46px;
+  padding: 13px 40px;
+  border: 1px solid #67e8f9;
+  border-radius: 10px;
+  background: #22d3ee;
+  color: #04101d;
+  font-family: 'Barlow Condensed', 'Plus Jakarta Sans', sans-serif;
+  font-size: 17px;
+  letter-spacing: 3px;
+  font-weight: 800;
   text-transform: uppercase;
+  white-space: nowrap;
   cursor: pointer;
-  transition: background .15s, transform .08s, box-shadow .15s;
+  box-shadow: 0 8px 24px rgba(6, 182, 212, 0.32);
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
 }
 #startBtn:hover:not(:disabled) {
-  background: #22d3ee;
+  background: #67e8f9;
   transform: translateY(-1px);
-  box-shadow: 0 8px 32px rgba(6,182,212,.4);
+  box-shadow: 0 12px 32px rgba(34, 211, 238, 0.45);
 }
 #startBtn:active:not(:disabled) {
   transform: translateY(1px);
-  box-shadow: none;
+  box-shadow: 0 4px 14px rgba(6, 182, 212, 0.28);
 }
 #startBtn:disabled {
-  opacity: .3;
+  opacity: 0.45;
   cursor: wait;
 }
 
 /* Keep account progress visible over the home screen without showing flight controls. */
 body:has(#overlay:not(.hidden)) #flightSidebar{
-  top:10px;right:auto;bottom:auto;left:10px;z-index:10000;width:auto;height:auto;
+  display:flex;top:14px;right:auto;bottom:auto;left:24px;z-index:10000;width:auto;height:auto;
   padding:0;border:0;background:none;backdrop-filter:none;-webkit-backdrop-filter:none;
   box-shadow:none;overflow:visible;pointer-events:none;
 }
-body:has(#overlay:not(.hidden)) #sidebarToggle,
 body:has(#overlay:not(.hidden)) .sidebarTitle,
 body:has(#overlay:not(.hidden)) #sidebarInfo{display:none}
 body:has(#overlay:not(.hidden)) #sidebarContent{display:flex;flex:none;overflow:visible}
 body:has(#overlay:not(.hidden)) #flightSidebar #careerHud{
-  flex-direction:row;align-items:center;gap:6px;padding:7px 9px;border:1px solid #263652;
-  border-radius:12px;background:#111a2e;box-shadow:0 3px 0 #000,0 10px 30px rgba(0,0,0,.5);
+  flex-direction:row;align-items:center;gap:8px;padding:7px 11px;border:1px solid rgba(148,163,184,.2);
+  border-radius:11px;background:rgba(8,14,26,.86);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  box-shadow:0 10px 28px rgba(0,0,0,.45);
 }
 body:has(#overlay:not(.hidden)) #flightSidebar .chBtn,
 body:has(#overlay.hidden) #flightSidebar .chBtn{display:none}
-body:has(#overlay:not(.hidden)) #flightSidebar .chStat{min-height:0;padding:5px 9px}
-/* Push overlay content below the career HUD */
-#overlay {
-  padding-top: 60px;
-}
+body:has(#overlay:not(.hidden)) #flightSidebar .chStat{min-height:0;padding:4px 9px}
 
 /* Hide in-flight chrome that would otherwise float above the home overlay */
+body:has(#overlay:not(.hidden)) #hudBar,
 body:has(#overlay:not(.hidden)) #camBadge,
 body:has(#overlay:not(.hidden)) #bootBadge,
 body:has(#overlay:not(.hidden)) #faultTriggers,
-body:has(#overlay:not(.hidden)) #fmsBtn,
-body:has(#overlay:not(.hidden)) #atcBtn,
-body:has(#overlay:not(.hidden)) #mpBtn,
 body:has(#overlay:not(.hidden)) #fpHudPill {
   display: none !important;
 }
 
 /* ---------- RESPONSIVE ---------- */
+@media (max-width: 960px) {
+  .homeHero {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 22px 22px 20px;
+  }
+  .heroBriefVal { max-width: none; }
+}
 @media (max-width: 800px) {
-  #overlay { padding: 10px; align-items: flex-start; }
-  .homeCard { max-height: calc(100vh - 20px); border-radius: 12px; }
-  .homeHero { padding: 20px 18px 16px; }
-  .homeHero h1 { font-size: 20px; letter-spacing: 4px; }
-  .homeHero h2 { font-size: 9.5px; letter-spacing: 1.5px; }
-  .homeEye { font-size: 9px; letter-spacing: 3px; }
-  .homeBody { grid-template-columns: 118px minmax(0,1fr); }
-  #homeMenu{grid-column:1;grid-row:1 / span 3;padding:14px 7px}
-  .homeMain,.homeSide,.homeControlsFull{grid-column:2}
-  .homeMain { border-right: none; border-bottom: 2px solid #263652; }
-  .homeControlsFull{grid-column:2}
-  .homeCol { padding: 18px 18px 20px; }
-  .homeControlsFull { padding: 0 18px; }
+  #overlay { padding: 60px 10px 14px; align-items: flex-start; }
+  .homeCard { min-height: auto; max-height: none; border-radius: 12px; }
+  .homeHero { padding: 18px 18px 16px; }
+  .homeBody { grid-template-columns: 124px minmax(0,1fr); }
+  #homeMenu { grid-column: 1; grid-row: 1 / span 3; padding: 14px 8px; }
+  .homeMain, .homeSide, .homeControlsFull { grid-column: 2; }
+  .homeMain { border-right: none; border-bottom: 1px solid rgba(148, 163, 184, 0.12); }
+  .homeCol { padding: 16px 16px 18px; }
+  .homeControlsFull { padding: 4px 16px 8px; }
   .controlsDetails .keys { grid-template-columns: auto 1fr; }
   .fieldRow { grid-template-columns: 1fr; }
   .customGrid { grid-template-columns: 1fr; }
   .homeFoot {
     flex-direction: column-reverse;
-    padding: 14px 18px;
+    padding: 14px 16px;
     gap: 10px;
     align-items: stretch;
   }
   #startBtn { width: 100%; min-width: 0; }
   #loadStatus { text-align: center; }
 }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
 
 @media (max-width: 700px){
-  #flightSidebar{top:calc(env(safe-area-inset-top,0px) + 8px);bottom:auto;left:8px}
-  body.sidebar-open #flightSidebar{width:min(260px,calc(100vw - 20px));max-height:calc(100dvh - 16px)}
+  #hudBar{top:8px;left:8px;max-width:calc(100vw - 16px);gap:4px}
+  .hudBtn,#hudBar button,#fmsBtn,#atcBtn,#mpBtn,#wxrBtn{padding:6px 8px;font-size:10px}
+  body.sidebar-open #flightSidebar{width:min(260px,calc(100vw - 16px));max-height:calc(100dvh - 68px);left:8px;top:52px}
   body.sidebar-open #objHud{left:8px;top:auto;bottom:270px}
   body.sidebar-open #fms,body.sidebar-open #atc{left:8px;top:52px}
-  body.sidebar-open #fmsBtn{left:8px}
-  body.sidebar-open #atcBtn{left:135px}
 }
   /* ============ MISSION OBJECTIVES HUD ============ */
 #objHud{
@@ -1554,12 +1826,12 @@ body.pfd-hidden #compass {
 
   /* ===== MOBILE-FRIENDLY PASS (touch screens, small phones, short landscape) ===== */
   html,body{-webkit-text-size-adjust:100%;text-size-adjust:100%;overscroll-behavior:none}
-  #overlay{height:100vh;height:100dvh;padding-top:calc(env(safe-area-inset-top,0px) + 10px);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 10px);-webkit-overflow-scrolling:touch}
+  #overlay{min-height:100vh;min-height:100dvh;padding-top:calc(env(safe-area-inset-top,0px) + 64px);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 18px);-webkit-overflow-scrolling:touch}
   @media (pointer:coarse){
     #keyHelpBtn,#keyHelpPanel{display:none !important}          /* keyboard-only help */
     button,.tb,.cfgChip,.faultBtn{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
     #overlay button,#overlay .cfgChip{min-height:44px}
-    #startBtn{min-height:52px;font-size:16px;letter-spacing:3px}
+    #startBtn{min-height:52px;font-size:18px;letter-spacing:3px}
     #overlay input[type=checkbox]{width:22px;height:22px}
     #overlay input[type=range]{height:28px}
     #overlay .sub,#overlay .hint,#overlay .lbl{font-size:12px}
@@ -1567,22 +1839,21 @@ body.pfd-hidden #compass {
   @media (max-width:480px){
     #overlay{padding-left:8px;padding-right:8px}
     .homeCard{width:100%;border-radius:10px}
-    .homeHero{padding:16px 14px 12px}
-    .homeHero h1{font-size:18px;letter-spacing:3px}
+    .homeHero{padding:16px 14px 14px}
+    .heroTitle{font-size:32px;letter-spacing:2px}
     .homeBody{grid-template-columns:58px minmax(0,1fr)}
     #homeMenu{padding:12px 4px;gap:5px}
-    .homeMenuLabel,#homeMenu .homeNavItem>span:not(.navIcon){display:none}
+    .homeMenuLabel,#homeMenu .homeNavItem>span:not(.navIcon),.homeNavSep{display:none}
     .homeNavItem{justify-content:center;padding:10px 4px}
     .homeNavItem .navIcon{width:auto;font-size:15px}
     .homeCol{padding:14px 14px 16px}
-    .homeControlsFull{padding:0 14px}
-    .heroPills{gap:6px}
-    .heroPill{font-size:10px;padding:4px 8px}
+    .homeControlsFull{padding:4px 14px 8px}
+    .heroHighlights{font-size:10.5px}
   }
   @media (max-height:500px) and (orientation:landscape){
     #overlay{align-items:flex-start}
     .homeCard{max-height:none}
-    .homeHero{padding:10px 16px 8px}
+    .homeHero{padding:12px 16px 10px}
     .homeCol{padding:10px 16px 12px}
   }
 
@@ -1603,10 +1874,26 @@ body.pfd-hidden #compass {
 <div id="camBadge">CAM · CHASE</div>
 <div id="wxFlash"></div><div id="smokeHaze"></div>
 
+<div id="hudBar" aria-label="Flight command bar">
+  <button id="sidebarToggle" class="hudBtn" type="button" aria-label="Open flight desk" aria-expanded="false" aria-controls="flightSidebar" title="Flight Desk & Telemetry">☰ Desk</button>
+  <div id="toolsWrap">
+    <button id="toolsMenuBtn" class="hudBtn" type="button" aria-expanded="false" aria-controls="toolsMenu">⚙ Tools ▾</button>
+    <div id="toolsMenu" role="menu">
+      <button class="tmItem" type="button" data-tool="clouds"><span>☁ Cloud Layers</span><span class="tmTag"></span></button>
+      <button class="tmItem" type="button" data-tool="faults"><span>⚠ Inject Fault</span><span class="tmTag"></span></button>
+      <button class="tmItem" type="button" data-tool="roulette"><span>🎰 Failure Roulette</span><span class="tmTag">R</span></button>
+      <button class="tmItem" type="button" data-tool="antiice"><span>❄ Anti-Ice</span><span class="tmTag" id="tmAntiIceTag">OFF</span></button>
+      <div class="tmSep"></div>
+      <button class="tmItem" type="button" data-tool="gfx"><span>◈ Graphics</span><span class="tmTag" id="tmGfxTag">MED · O</span></button>
+      <button class="tmItem" type="button" data-tool="logbook"><span>📋 Landing Logbook</span><span class="tmTag" id="tmPbTag"></span></button>
+      <button class="tmItem" type="button" data-tool="settings"><span>⚙ Flight Settings</span><span class="tmTag"></span></button>
+      <button class="tmItem" type="button" data-tool="offline"><span>⬇ Offline Maps</span><span class="tmTag" id="tmOfflineTag"></span></button>
+      <button class="tmItem" type="button" data-tool="keys"><span>⌨ Shortcuts</span><span class="tmTag"></span></button>
+    </div>
+  </div>
+</div>
+
 <aside id="flightSidebar" aria-label="Flight sidebar">
-  <button id="sidebarToggle" type="button" aria-label="Open flight sidebar" aria-expanded="false" aria-controls="sidebarContent" title="Open flight sidebar">
-    <span aria-hidden="true">☰</span><span class="menuLabel">FLIGHT MENU</span>
-  </button>
   <div id="sidebarContent">
     <div class="sidebarTitle">FLIGHT DESK</div>
     <div id="sidebarStats"></div>
@@ -1757,30 +2044,49 @@ body.pfd-hidden #compass {
 </div>
 <div id="overlay">
   <div class="homeCard">
-    <div class="homeHero">
-      <div class="heroTitle">SKYDECK <span>737 PRO</span></div>
-      <div class="heroSub">Real physics &middot; Live weather &middot; Crash dynamics &middot; AI traffic</div>
-      <div class="heroPills">
-        <span class="heroPill">Crash Physics</span>
-        <span class="heroPill">Live Weather</span>
-        <span class="heroPill">17 Faults</span>
-        <span class="heroPill">AI Traffic</span>
-        <span class="heroPill">Night Mode</span>
-        <span class="heroPill">ATC Chatter</span>
-        <span class="heroPill">Wing Icing</span>
-        <span class="heroPill">G-Meter</span>
-        <span class="heroPill">Replay</span>
+    <header class="homeHero">
+      <div class="heroLeft">
+        <div class="heroKicker"><span class="heroLiveDot" aria-hidden="true"></span>Global Flight Deck · Online Dispatch</div>
+        <h1 class="heroTitle">SKYDECK <span>737 PRO</span></h1>
+        <p class="heroSub">Real-time 3D flight simulation over global satellite terrain, live weather radar, and shared multiplayer airspace.</p>
+        <div class="heroHighlights" aria-label="Simulator capabilities">
+          <span>Crash &amp; Gear Physics</span><span class="dot" aria-hidden="true">&middot;</span>
+          <span>Live Weather Radar</span><span class="dot" aria-hidden="true">&middot;</span>
+          <span>Global Multiplayer</span><span class="dot" aria-hidden="true">&middot;</span>
+          <span>FMS Flight Planning</span><span class="dot" aria-hidden="true">&middot;</span>
+          <span>3D Satellite Cities</span><span class="dot" aria-hidden="true">&middot;</span>
+          <span>ATC &amp; Replay</span>
+        </div>
       </div>
-    </div>
+
+      <div class="heroBrief" aria-label="Active flight brief">
+        <div class="heroBriefRow">
+          <span class="heroBriefLbl">Departure</span>
+          <span class="heroBriefVal" id="briefDep">Toronto Pearson (CYYZ)</span>
+        </div>
+        <div class="heroBriefRow">
+          <span class="heroBriefLbl">Condition</span>
+          <span class="heroBriefVal" id="briefCond">Midday · Clear skies</span>
+        </div>
+        <div class="heroBriefRow">
+          <span class="heroBriefLbl">Initial State</span>
+          <span class="heroBriefVal" id="briefStart">Cruise (airborne)</span>
+        </div>
+        <div class="heroQuickActions">
+          <button class="heroGhostBtn" type="button" data-home-panel="missions">Missions</button>
+          <button class="heroGhostBtn" type="button" data-home-panel="hangar">Hangar / Store</button>
+        </div>
+      </div>
+    </header>
 
     <div class="homeBody">
         <nav id="homeMenu" aria-label="Home menu">
-          <div class="homeMenuLabel">Navigation</div>
+          <div class="homeMenuLabel">Preflight</div>
           <button class="homeNavItem" type="button" data-home-jump="homeSetup" aria-current="page" aria-label="Flight setup">
-            <span class="navIcon" aria-hidden="true">✈</span><span>Flight setup</span>
+            <span class="navIcon" aria-hidden="true">✈</span><span>Flight Setup</span>
           </button>
           <button class="homeNavItem" type="button" data-home-jump="homeFlightPlan" aria-label="Flight plan">
-            <span class="navIcon" aria-hidden="true">🧭</span><span>Flight plan</span>
+            <span class="navIcon" aria-hidden="true">🧭</span><span>Flight Plan</span>
           </button>
           <button class="homeNavItem" type="button" data-home-jump="homeGraphics" aria-label="Graphics and environment">
             <span class="navIcon" aria-hidden="true">◈</span><span>Visuals</span>
@@ -1794,6 +2100,7 @@ body.pfd-hidden #compass {
           <button class="homeNavItem" type="button" data-home-jump="homeControls" aria-label="Controls and key bindings">
             <span class="navIcon" aria-hidden="true">⌨</span><span>Controls</span>
           </button>
+          <div class="homeNavSep" role="separator"></div>
           <button class="homeNavItem" type="button" data-home-panel="missions" aria-label="Missions and lessons">
             <span class="navIcon" aria-hidden="true">📋</span><span>Missions</span>
           </button>
@@ -1805,8 +2112,8 @@ body.pfd-hidden #compass {
         <div class="homeColHead">Flight Setup</div>
 
         <div class="field">
-          <label>Departure Airport</label>
-          <input id="airportSearch" type="text" placeholder="🔍 Search airport or ICAO…" autocomplete="off" style="width:100%;box-sizing:border-box;background:#0d1f38;color:#acd;border:1px solid #1e4a7a;border-radius:6px;padding:5px 9px;font-size:12px;font-family:monospace;margin-bottom:4px;">
+          <label for="airportSearch">Departure Airport</label>
+          <input id="airportSearch" type="text" placeholder="Search airport name or ICAO (e.g. KJFK, EGLL, CYYZ)..." autocomplete="off">
           <select id="locSelect" size="1">
             <optgroup label="🇨🇦 Canada — Ontario">
   <option value="43.6772,-79.6306,173,CYYZ">Toronto Pearson (CYYZ)</option>
@@ -2215,16 +2522,16 @@ body.pfd-hidden #compass {
               <input id="homeCrzAlt" type="number" min="1500" max="60000" step="500" value="18000">
             </div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px">
-            <button id="homeGenFpBtn" type="button" style="background:#0e7490;color:#e0f2fe;border:1px solid #22d3ee;border-radius:6px;padding:6px 11px;font-size:11px;font-weight:700;cursor:pointer">Generate Route</button>
-            <button id="homeClrFpBtn" type="button" style="background:#111a2e;color:#94a3b8;border:1px solid #263652;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer">Clear</button>
-            <span id="homeFpSummary" style="font-size:11px;color:#a5f3fc;font-family:monospace">Local flight · open FMS (J) anytime</span>
+          <div class="fpActionsRow">
+            <button id="homeGenFpBtn" class="fpBtnPrimary" type="button">Generate Route</button>
+            <button id="homeClrFpBtn" class="fpBtnGhost" type="button">Clear</button>
+            <span id="homeFpSummary">Local flight · open FMS (J) anytime</span>
           </div>
           <div id="homeFpChips" class="fpRouteChips"></div>
         </div>
 
-                <div class="homeColHead" id="homeGraphics">Graphics Quality</div>
-        <div class="field" style="margin-bottom:20px;">
+                <div class="homeColHead" id="homeGraphics">Graphics &amp; Environment</div>
+        <div class="field" style="margin-bottom:12px;">
           <label>Imagery Resolution</label>
           <select id="resSelect">
             <option value="low">Low (Fastest load, blurry)</option>
@@ -2313,48 +2620,35 @@ body.pfd-hidden #compass {
           </select>
         </div>
 
-        <div class="homeColHead" id="homeMultiplayer">Multiplayer</div>
+        <div class="homeColHead" id="homeMultiplayer">Global Multiplayer Server</div>
         <div class="setupSubCard">
-          <div class="fieldRow">
-            <div class="field">
-              <label>Callsign</label>
-              <input id="mpHomeCallsign" type="text" maxlength="14" placeholder="SKY737" autocomplete="off">
-            </div>
-            <div class="field">
-              <label>Room Code</label>
-              <input id="mpHomeRoom" type="text" maxlength="16" placeholder="PUBLIC" autocomplete="off">
-            </div>
+          <div class="field">
+            <label for="mpHomeCallsign">Pilot Callsign</label>
+            <input id="mpHomeCallsign" type="text" maxlength="14" placeholder="SKY737" autocomplete="off">
           </div>
-          <label class="checkRow" style="margin-top:6px">
-            <input type="checkbox" id="mpAutoChk" checked>
-            <span class="checkLabel">Join Live Multiplayer</span>
-          </label>
-          <div id="mpHomeStatus" style="font-size:11px;color:#38bdf8;font-family:monospace;margin-top:4px">Connecting to multiplayer server…</div>
+          <div id="mpHomeStatus">● Global Server · Connecting…</div>
         </div>
 
         <div class="homeColHead">Turbulence</div>
         <div class="field">
-          <label>Intensity</label>
+          <label for="turbSel">Intensity</label>
           <select id="turbSel">
             <option value="0">Calm (none)</option>
             <option value="1" selected>Light chop</option>
             <option value="2">Moderate</option>
-            <option value="3">Severe 🌩️</option>
+            <option value="3">Severe</option>
           </select>
         </div>
 
         <div class="homeColHead">Challenges</div>
-        <div class="field" style="flex-direction:column;gap:8px;align-items:stretch">
-          <button id="cwChallengeBtn" onclick="window._crosswindChallenge&&window._crosswindChallenge(this._cw=!this._cw);this.textContent=this._cw?'🌬️ Challenge: ON ✓':'🌬️ Crosswind Challenge';this.style.background=this._cw?'#132808':'#0b1a2e'" style="background:#0b1a2e;color:#7cf;border:1px solid #1e4a7a;border-radius:7px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;width:100%;letter-spacing:.04em">🌬️ Crosswind Challenge</button>
-          <div style="font-size:11px;color:#445;line-height:1.4">28-kt crosswind. Graded by centreline deviation on touchdown.</div>
+        <div class="field" style="display:flex;flex-direction:column;gap:8px;align-items:stretch">
+          <button id="cwChallengeBtn" type="button" onclick="window._crosswindChallenge&&window._crosswindChallenge(this._cw=!this._cw);this.textContent=this._cw?'Crosswind Challenge: ON':'Crosswind Challenge';this.style.background=this._cw?'rgba(22,101,52,.7)':'rgba(15,23,42,.85)';this.style.borderColor=this._cw?'#22c55e':'rgba(56,189,248,.35)'">Crosswind Challenge</button>
+          <div class="cwSubText">28-kt crosswind. Graded by centreline deviation on touchdown.</div>
         </div>
 
-        <div class="homeColHead">Notes</div>
+        <div class="homeColHead">Preflight Notes</div>
         <div class="hint">
-          Click <b>⚠ Inject Fault</b> in flight (bottom right) to trigger failures.
-          Sensor failures corrupt the matching HUD. Watch fire &amp; smoke from the
-          <b>Chase</b> or <b>Wing</b> camera. Land with gear up = belly scrape.
-          New cockpit view shows animated yokes, throttle levers &amp; rudder pedals.
+          Open <b>⚙ Tools</b> in the top-left command bar during flight to inject faults, manage cloud layers, or download offline maps. Switch to <b>Chase</b> or <b>Wing</b> view to inspect engine fires and control surfaces, or <b>Cockpit</b> view for animated yokes, throttles, and rudder pedals.
         </div>
       </aside>
 
@@ -2373,6 +2667,10 @@ body.pfd-hidden #compass {
             <b>[ / ]</b><span>HDG bug</span><b>PgUp/PgDn</b><span>ALT bug</span>
             <b>Shift+L</b><span>Cycle livery</span><b>T</b><span>Autothrottle</span><b>M</b><span>Mute audio</span>
           </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:0 0 14px;flex-wrap:wrap">
+            <button id="wii-sync-btn" type="button">Connect Wii Remote</button>
+            <span id="wii-status" style="font-size:11.5px;color:#94a3b8"></span>
+          </div>
         </details>
       </div>
     </div>
@@ -2380,8 +2678,6 @@ body.pfd-hidden #compass {
     <div class="homeFoot">
       <div id="loadStatus">Ready</div>
       <button id="startBtn">Start Flight</button>
-      <button id="wii-sync-btn">Connect Wii Remote</button>
-      <div id="wii-status" style="font-size:12px;opacity:.85;margin-top:6px"></div>
     </div>
   </div>
 </div>
@@ -2390,13 +2686,46 @@ body.pfd-hidden #compass {
     button.addEventListener('click',()=>{
       const scroller=document.querySelector('.homeBody');
       const target=document.getElementById(button.dataset.homeJump);
-      if(!scroller||!target)return;
-      const top=target.getBoundingClientRect().top-scroller.getBoundingClientRect().top+scroller.scrollTop-10;
-      scroller.scrollTo({top,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+      if(!target)return;
+      const smooth=window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
+      if(scroller&&scroller.scrollHeight>scroller.clientHeight+4){
+        const top=target.getBoundingClientRect().top-scroller.getBoundingClientRect().top+scroller.scrollTop-10;
+        scroller.scrollTo({top,behavior:smooth});
+      }else{
+        target.scrollIntoView({behavior:smooth,block:'start'});
+      }
       document.querySelectorAll('.homeNavItem').forEach(item=>item.removeAttribute('aria-current'));
       button.setAttribute('aria-current','page');
     });
   });
+  (function(){
+    const loc=document.getElementById('locSelect');
+    const tod=document.getElementById('todSelect');
+    const wx=document.getElementById('wxSelect');
+    const st=document.getElementById('startSel');
+    const bDep=document.getElementById('briefDep');
+    const bCond=document.getElementById('briefCond');
+    const bStart=document.getElementById('briefStart');
+    function syncBrief(){
+      if(bDep&&loc){
+        const opt=loc.options[loc.selectedIndex];
+        bDep.textContent=opt?opt.textContent:'Custom Coordinates';
+      }
+      if(bCond&&tod&&wx){
+        const tOpt=tod.options[tod.selectedIndex];
+        const wOpt=wx.options[wx.selectedIndex];
+        bCond.textContent=(tOpt?tOpt.textContent:'Midday')+' · '+(wOpt?wOpt.textContent:'Clear');
+      }
+      if(bStart&&st){
+        const sOpt=st.options[st.selectedIndex];
+        bStart.textContent=sOpt?sOpt.textContent:'Cruise';
+      }
+    }
+    const search=document.getElementById('airportSearch');
+    [loc,tod,wx,st].forEach(el=>el&&el.addEventListener('change',syncBrief));
+    if(search)search.addEventListener('input',()=>setTimeout(syncBrief,0));
+    syncBrief();
+  })();
 </script>
 
 <div id="crashOverlay">
@@ -2424,42 +2753,24 @@ body.pfd-hidden #compass {
   <div id="thr"><div id="thrF"></div><div id="thrL">THR</div></div>
 </div>
 
-<!-- KEYBIND HELP TOOLTIP -->
-<div id="keyHelpBtn" style="position:fixed;bottom:14px;left:14px;z-index:400;background:#08111f;color:#5a7a9a;border:1px solid #1e3a5a;border-radius:8px;padding:5px 10px;font-family:monospace;font-size:10px;cursor:pointer;user-select:none;" title="Show keyboard shortcuts">⌨ Keys</div>
-<div id="keyHelpPanel" style="display:none;position:fixed;bottom:38px;left:14px;z-index:401;background:#060f1c;border:1px solid #1e4a7a;border-radius:12px;padding:14px 18px;font-family:monospace;font-size:11px;color:#7aabcc;min-width:240px;box-shadow:0 8px 32px rgba(0,0,0,.7);">
-  <div style="font-size:12px;font-weight:700;color:#5af;margin-bottom:8px">⌨ KEYBOARD SHORTCUTS</div>
+<!-- KEYBIND HELP TOOLTIP (opened from ⚙ Tools ▾) -->
+<div id="keyHelpPanel" style="display:none;position:fixed;top:56px;left:12px;z-index:9998;background:rgba(6,15,28,.96);backdrop-filter:blur(12px);border:1px solid #1e4a7a;border-radius:12px;padding:14px 18px;font-family:monospace;font-size:11px;color:#7aabcc;min-width:250px;box-shadow:0 16px 40px rgba(0,0,0,.7);">
+  <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:#5af;margin-bottom:8px">
+    <span>⌨ KEYBOARD SHORTCUTS</span>
+    <button type="button" onclick="document.getElementById('keyHelpPanel').style.display='none'" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:14px">✕</button>
+  </div>
   <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 12px;line-height:1.6">
+    <span style="color:#5af">J / K</span><span>Nav Map / ATC Radio</span>
+    <span style="color:#5af">O</span><span>Cycle Graphics Quality</span>
     <span style="color:#5af">N</span><span>Toggle night mode</span>
     <span style="color:#5af">R</span><span>Failure roulette spin</span>
-    <span style="color:#5af">T</span><span>ATC chatter on/off</span>
-    <span style="color:#5af">F3</span><span>Hydraulic loss fault</span>
-    <span style="color:#5af">F4</span><span>Rapid decompression</span>
-    <span style="color:#5af">F9</span><span>Replay last 60s</span>
-    <span style="color:#5af">F10</span><span>Replay speed cycle</span>
-    <span style="color:#5af">Space</span><span>Pause replay</span>
-    <span style="color:#5af">← →</span><span>Scrub replay ±3s</span>
-    <span style="color:#5af">Q</span><span>Cycle replay camera</span>
-  </div>
-  <div style="margin-top:10px;padding-top:8px;border-top:1px solid #1e3a5c;font-size:10px;color:#4a7a9a;">
-    <div style="color:#5af;font-weight:700;margin-bottom:4px">✦ AUTO EFFECTS</div>
-    🔥 Traffic planes catch fire randomly<br>
-    💥 Crash debris with fireball physics<br>
-    📊 G-meter HUD when airborne<br>
-    ⚠ Wind shear alert under 4,000 ft<br>
-    🎯 Approach lights at runway threshold<br>
-    🔔 Altitude alerts at FL boundaries
+    <span style="color:#5af">F3 / F4</span><span>Hydraulics / Decompression</span>
+    <span style="color:#5af">F9 / F10</span><span>Replay / Replay Speed</span>
+    <span style="color:#5af">Space</span><span>Brakes / Pause replay</span>
+    <span style="color:#5af">← →</span><span>Aileron trim / Scrub replay</span>
+    <span style="color:#5af">U</span><span>Clean Photo Mode (hide HUD)</span>
   </div>
 </div>
-<script>
-  document.getElementById('keyHelpBtn').onclick=function(){
-    var p=document.getElementById('keyHelpPanel');
-    p.style.display=p.style.display==='none'?'block':'none';
-  };
-  document.addEventListener('click',function(e){
-    var p=document.getElementById('keyHelpPanel'),b=document.getElementById('keyHelpBtn');
-    if(p&&b&&!p.contains(e.target)&&e.target!==b)p.style.display='none';
-  },{capture:true,passive:true});
-</script>
 
 <!-- THE 3 SCRIPT SRCS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babylonjs/7.31.0/babylon.js"></script>

@@ -6,43 +6,31 @@ const { WebSocketServer, WebSocket } = require('ws');
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = '0.0.0.0';
+const GLOBAL_ROOM = 'GLOBAL';
 
 app.use(express.static(path.resolve(__dirname), {
   index: 'index.html',
   extensions: ['html']
 }));
 
-// Authoritative multiplayer room registry: Map<roomId, Map<playerId, PlayerRecord>>
-const rooms = new Map();
+// Single authoritative global world server: Map<playerId, PlayerRecord>
+const players = new Map();
 let nextSeq = 1;
-
-function cleanRoom(raw) {
-  const s = String(raw || 'PUBLIC').toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 16);
-  return s || 'PUBLIC';
-}
 
 function cleanCallsign(raw, fallback) {
   const s = String(raw || '').toUpperCase().replace(/[^A-Z0-9 _-]/g, '').trim().slice(0, 14);
   return s || fallback;
 }
 
-function getRoom(roomId) {
-  let r = rooms.get(roomId);
-  if (!r) {
-    r = new Map();
-    rooms.set(roomId, r);
-  }
-  return r;
-}
-
 function serializePlayer(p) {
   return {
     id: p.id,
     callsign: p.callsign,
-    room: p.room,
+    room: GLOBAL_ROOM,
     modelId: p.modelId,
     liveryIdx: p.liveryIdx,
     airport: p.airport,
+    flying: !!p.flying,
     lat: p.lat,
     lon: p.lon,
     alt: p.alt,
@@ -61,11 +49,9 @@ function serializePlayer(p) {
   };
 }
 
-function broadcastRoom(roomId, payload, excludeId) {
-  const room = rooms.get(roomId);
-  if (!room) return;
+function broadcastGlobal(payload, excludeId) {
   const msg = JSON.stringify(payload);
-  for (const p of room.values()) {
+  for (const p of players.values()) {
     if (excludeId && p.id === excludeId) continue;
     if (p.ws && p.ws.readyState === WebSocket.OPEN) {
       try {
@@ -75,30 +61,27 @@ function broadcastRoom(roomId, payload, excludeId) {
   }
 }
 
-function removeFromRoom(player) {
-  if (!player || !player.room) return;
-  const room = rooms.get(player.room);
-  if (!room) return;
-  const existed = room.delete(player.id);
+function removePlayer(player) {
+  if (!player || !player.joined) return;
+  const existed = players.delete(player.id);
+  player.joined = false;
   if (existed) {
-    broadcastRoom(player.room, { type: 'player:left', id: player.id }, player.id);
-    if (room.size === 0) rooms.delete(player.room);
+    broadcastGlobal({ type: 'player:left', id: player.id }, player.id);
   }
-  player.room = null;
 }
 
 app.get('/health', (_req, res) => {
-  let totalPlayers = 0;
-  for (const r of rooms.values()) totalPlayers += r.size;
-  res.status(200).json({ ok: true, rooms: rooms.size, players: totalPlayers });
+  res.status(200).json({ ok: true, server: GLOBAL_ROOM, rooms: 1, players: players.size });
+});
+
+app.get('/api/players', (_req, res) => {
+  const list = [];
+  for (const p of players.values()) list.push(serializePlayer(p));
+  res.status(200).json({ server: GLOBAL_ROOM, count: list.length, players: list });
 });
 
 app.get('/api/rooms', (_req, res) => {
-  const list = [];
-  for (const [id, r] of rooms.entries()) {
-    list.push({ id, players: r.size });
-  }
-  res.status(200).json({ rooms: list });
+  res.status(200).json({ rooms: [{ id: GLOBAL_ROOM, players: players.size }] });
 });
 
 app.use((_req, res) => {
@@ -108,17 +91,86 @@ app.use((_req, res) => {
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
+function applyTelemetry(player, d) {
+  const num = (v, fb) => (Number.isFinite(v) ? v : fb);
+  player.lat = num(d.lat, player.lat);
+  player.lon = num(d.lon, player.lon);
+  player.alt = num(d.alt, player.alt);
+
+  const qx = num(d.qx, player.qx);
+  const qy = num(d.qy, player.qy);
+  const qz = num(d.qz, player.qz);
+  const qw = num(d.qw, player.qw);
+  const qLen = Math.hypot(qx, qy, qz, qw);
+  if (qLen > 0.001) {
+    player.qx = qx / qLen;
+    player.qy = qy / qLen;
+    player.qz = qz / qLen;
+    player.qw = qw / qLen;
+  }
+
+  player.spd = num(d.spd, player.spd);
+  player.hdg = num(d.hdg, player.hdg);
+  player.vs = num(d.vs, player.vs);
+  player.gearPos = num(d.gearPos, player.gearPos);
+  player.flaps = num(d.flaps, player.flaps);
+  player.throttle = num(d.throttle, player.throttle);
+  player.crashed = !!d.crashed;
+  if (typeof d.flying === 'boolean') player.flying = d.flying;
+  if (typeof d.modelId === 'string') player.modelId = d.modelId.slice(0, 24);
+  if (Number.isFinite(d.liveryIdx)) player.liveryIdx = Math.max(0, d.liveryIdx | 0);
+  if (typeof d.airport === 'string') player.airport = d.airport.slice(0, 12);
+  if (typeof d.callsign === 'string') player.callsign = cleanCallsign(d.callsign, player.callsign);
+}
+
+function joinGlobal(player, data) {
+  const wasJoined = player.joined;
+  player.callsign = cleanCallsign(data && data.callsign, player.callsign);
+  if (data && typeof data.modelId === 'string') player.modelId = data.modelId.slice(0, 24);
+  if (data && Number.isFinite(data.liveryIdx)) player.liveryIdx = Math.max(0, data.liveryIdx | 0);
+  if (data && typeof data.airport === 'string') player.airport = data.airport.slice(0, 12);
+  if (data && typeof data.flying === 'boolean') player.flying = data.flying;
+  if (data && data.state && typeof data.state === 'object') applyTelemetry(player, data.state);
+
+  player.joined = true;
+  player.updatedAt = Date.now();
+
+  const others = [];
+  for (const other of players.values()) {
+    if (other.id !== player.id) others.push(serializePlayer(other));
+  }
+  players.set(player.id, player);
+
+  if (player.ws && player.ws.readyState === WebSocket.OPEN) {
+    try {
+      player.ws.send(JSON.stringify({
+        type: 'welcome',
+        playerId: player.id,
+        room: GLOBAL_ROOM,
+        callsign: player.callsign,
+        players: others
+      }));
+    } catch (_) {}
+  }
+
+  broadcastGlobal({
+    type: wasJoined ? 'player:state' : 'player:joined',
+    player: serializePlayer(player)
+  }, player.id);
+}
+
 wss.on('connection', (ws) => {
   const playerId = 'P' + (nextSeq++).toString(36).toUpperCase();
   const player = {
     id: playerId,
     ws,
     isAlive: true,
-    room: null,
+    joined: false,
     callsign: 'PILOT-' + playerId,
     modelId: '737',
     liveryIdx: 0,
     airport: 'LSZH',
+    flying: false,
     lat: 47.4647,
     lon: 8.5492,
     alt: 900,
@@ -146,59 +198,27 @@ wss.on('connection', (ws) => {
     }
     if (!data || typeof data !== 'object') return;
 
+    player.isAlive = true;
+
     if (data.type === 'ping') {
-      player.isAlive = true;
       try { ws.send(JSON.stringify({ type: 'pong', ts: Date.now() })); } catch (_) {}
       return;
     }
 
     if (data.type === 'join') {
-      const targetRoom = cleanRoom(data.room);
-      const targetCallsign = cleanCallsign(data.callsign, player.callsign);
-      const prevRoom = player.room;
-
-      if (prevRoom && prevRoom !== targetRoom) {
-        removeFromRoom(player);
-      }
-
-      player.callsign = targetCallsign;
-      if (typeof data.modelId === 'string') player.modelId = data.modelId.slice(0, 24);
-      if (Number.isFinite(data.liveryIdx)) player.liveryIdx = Math.max(0, data.liveryIdx | 0);
-      if (typeof data.airport === 'string') player.airport = data.airport.slice(0, 12);
-      if (data.state && typeof data.state === 'object') applyTelemetry(player, data.state);
-
-      player.room = targetRoom;
-      player.updatedAt = Date.now();
-      const room = getRoom(targetRoom);
-      const others = [];
-      for (const other of room.values()) {
-        if (other.id !== player.id) others.push(serializePlayer(other));
-      }
-      room.set(player.id, player);
-
-      try {
-        ws.send(JSON.stringify({
-          type: 'welcome',
-          playerId: player.id,
-          room: targetRoom,
-          callsign: player.callsign,
-          players: others
-        }));
-      } catch (_) {}
-
-      broadcastRoom(targetRoom, {
-        type: 'player:joined',
-        player: serializePlayer(player)
-      }, player.id);
+      joinGlobal(player, data);
       return;
     }
 
-    if (!player.room) return;
+    // Auto-join global server if telemetry/chat arrives before explicit join
+    if (!player.joined) {
+      joinGlobal(player, data);
+    }
 
     if (data.type === 'state') {
       applyTelemetry(player, data);
       player.updatedAt = Date.now();
-      broadcastRoom(player.room, {
+      broadcastGlobal({
         type: 'player:state',
         player: serializePlayer(player)
       }, player.id);
@@ -208,7 +228,7 @@ wss.on('connection', (ws) => {
     if (data.type === 'chat') {
       const text = String(data.text || '').replace(/[\r\n\t]/g, ' ').trim().slice(0, 140);
       if (!text) return;
-      broadcastRoom(player.room, {
+      broadcastGlobal({
         type: 'chat:msg',
         id: player.id,
         callsign: player.callsign,
@@ -226,7 +246,7 @@ wss.on('connection', (ws) => {
         alt: w.alt != null && Number.isFinite(Number(w.alt)) ? Math.round(Number(w.alt)) : null
       })).filter((w) => Number.isFinite(w.lat) && Number.isFinite(w.lon));
       if (!wps.length) return;
-      broadcastRoom(player.room, {
+      broadcastGlobal({
         type: 'fp:shared',
         id: player.id,
         callsign: player.callsign,
@@ -238,59 +258,30 @@ wss.on('connection', (ws) => {
     }
   });
 
-  ws.on('close', () => {
-    removeFromRoom(player);
-  });
-
-  ws.on('error', () => {
-    removeFromRoom(player);
-  });
+  ws.on('close', () => removePlayer(player));
+  ws.on('error', () => removePlayer(player));
 });
-
-function applyTelemetry(player, d) {
-  const num = (v, fb) => (Number.isFinite(v) ? v : fb);
-  player.lat = num(d.lat, player.lat);
-  player.lon = num(d.lon, player.lon);
-  player.alt = num(d.alt, player.alt);
-  player.qx = num(d.qx, player.qx);
-  player.qy = num(d.qy, player.qy);
-  player.qz = num(d.qz, player.qz);
-  player.qw = num(d.qw, player.qw);
-  player.spd = num(d.spd, player.spd);
-  player.hdg = num(d.hdg, player.hdg);
-  player.vs = num(d.vs, player.vs);
-  player.gearPos = num(d.gearPos, player.gearPos);
-  player.flaps = num(d.flaps, player.flaps);
-  player.throttle = num(d.throttle, player.throttle);
-  player.crashed = !!d.crashed;
-  if (typeof d.modelId === 'string') player.modelId = d.modelId.slice(0, 24);
-  if (Number.isFinite(d.liveryIdx)) player.liveryIdx = Math.max(0, d.liveryIdx | 0);
-  if (typeof d.airport === 'string') player.airport = d.airport.slice(0, 12);
-  if (typeof d.callsign === 'string') player.callsign = cleanCallsign(d.callsign, player.callsign);
-}
 
 // Heartbeat & stale socket cleanup every 15s
 const heartbeatInterval = setInterval(() => {
-  for (const room of rooms.values()) {
-    for (const player of room.values()) {
-      if (!player.ws || player.ws.readyState !== WebSocket.OPEN) {
-        removeFromRoom(player);
-        continue;
-      }
-      if (!player.isAlive) {
-        try { player.ws.terminate(); } catch (_) {}
-        removeFromRoom(player);
-        continue;
-      }
-      player.isAlive = false;
-      try { player.ws.ping(); } catch (_) {}
+  const now = Date.now();
+  for (const player of players.values()) {
+    if (!player.ws || player.ws.readyState !== WebSocket.OPEN) {
+      removePlayer(player);
+      continue;
     }
+    if (!player.isAlive && now - player.updatedAt > 20000) {
+      try { player.ws.terminate(); } catch (_) {}
+      removePlayer(player);
+      continue;
+    }
+    player.isAlive = false;
+    try { player.ws.ping(); } catch (_) {}
   }
 }, 15000);
 
 wss.on('close', () => clearInterval(heartbeatInterval));
 
 server.listen(PORT, HOST, () => {
-  console.log(`SkyDeck 737 Pro listening on http://${HOST}:${PORT}`);
+  console.log(`SkyDeck 737 Pro global multiplayer server listening on http://${HOST}:${PORT}`);
 });
-
